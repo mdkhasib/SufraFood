@@ -1,0 +1,22 @@
+# Built app files (big binaries; build them again or attach them to a GitHub release)
+*.apk
+*.aab
+/backend/public/downloads/
+
+# Uploaded files (logo, attendance proofs, receipts) stay on the server
+/backend/storage/app/public/*
+!/backend/storage/app/public/.gitignore
+
+# Local databases and secrets
+*.sqlite
+*.sqlite-journal
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+.claude/settings.local.json
