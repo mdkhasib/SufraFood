@@ -314,5 +314,10 @@
     "Open the shift while the network works. After that the POS keeps selling even if the network or the server goes down.": "নেটওয়ার্ক থাকা অবস্থায় শিফট খুলুন। এরপর নেটওয়ার্ক বা সার্ভার বন্ধ হলেও পিওএস বিক্রি চালিয়ে যাবে।",
     "Over plain http the browser cannot keep the page for reopening. Keep this tab open; bills are still saved.": "সাধারণ http-তে ব্রাউজার পেজটি আবার খোলার জন্য রাখতে পারে না। ট্যাব খোলা রাখুন; বিল তবুও জমা থাকবে।",
     "POS keeps selling when the network / server is down (offline bills sync later)": "নেটওয়ার্ক / সার্ভার বন্ধ থাকলেও পিওএস বিক্রি করবে (অফলাইন বিল পরে সিঙ্ক হবে)",
-    "Sync offline POS bills every (minutes)": "অফলাইন পিওএস বিল সিঙ্ক হবে প্রতি (মিনিট)"
+    "Sync offline POS bills every (minutes)": "অফলাইন পিওএস বিল সিঙ্ক হবে প্রতি (মিনিট)",
+    "Sale items (menu)": "বিক্রির আইটেম (মেনু)",
+    "Raw materials & stock": "কাঁচামাল ও স্টক",
+    "Remove photo": "ছবি মুছুন",
+    "choose or type a new one": "বাছুন বা নতুন লিখুন",
+    "JPG / PNG / WebP, max 3 MB. A square photo looks best.": "JPG / PNG / WebP, সর্বোচ্চ ৩ MB। বর্গাকার ছবি ভালো দেখায়।"
 }

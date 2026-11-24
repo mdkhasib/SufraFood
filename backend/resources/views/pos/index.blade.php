@@ -35,9 +35,10 @@
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
       <template x-for="m in menu.filter(m => (!cat || m.category===cat) && (!q || m.name.toLowerCase().includes(q.toLowerCase())))" :key="m.id">
-        <button class="card p-3 text-left hover:border-brand-500 active:scale-95 transition" @click="add(m)">
-          <div class="font-semibold text-sm" x-text="m.name"></div><div class="text-xs text-slate-400" x-text="m.name_bn"></div>
-          <div class="text-brand-700 font-bold mt-1" x-text="'৳'+(+m.sale_price).toFixed(0)"></div></button>
+        <button class="card p-0 overflow-hidden text-left hover:border-brand-500 active:scale-95 transition" @click="add(m)">
+          <template x-if="m.img"><img :src="m.img" class="w-full h-20 object-cover bg-slate-100" alt="" loading="lazy" onerror="this.remove()"></template>
+          <div class="p-3 pt-2"><div class="font-semibold text-sm" x-text="m.name"></div><div class="text-xs text-slate-400" x-text="m.name_bn"></div>
+          <div class="text-brand-700 font-bold mt-1" x-text="'৳'+(+m.sale_price).toFixed(0)"></div></div></button>
       </template>
     </div>
     <div class="card p-3 mt-4" x-show="serverOpen.length || myOpen().length"><div class="font-semibold text-sm mb-2">Open orders (sent to kitchen, not paid)</div>

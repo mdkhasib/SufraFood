@@ -294,7 +294,7 @@ class PlatformSeeder extends Seeder
             ['RM-017', 'Milk', 'দুধ', 'L', 'L', 1, 95, 20], ['RM-018', 'Tomato', 'টমেটো', 'kg', 'kg', 1, 80, 15], ['RM-019', 'Cucumber', 'শসা', 'kg', 'kg', 1, 60, 10],
         ];
         foreach ($raw as [$c, $n, $b, $u, $bu, $f, $p, $r]) {
-            Item::create(['code' => $c, 'name' => $n, 'name_bn' => $b, 'type' => 'RAW', 'category' => 'Raw material', 'unit' => $u, 'buy_unit' => $bu, 'buy_factor' => $f, 'last_price' => $p, 'reorder_level' => $r]);
+            Item::create(['code' => $c, 'name' => $n, 'name_bn' => $b, 'type' => 'RAW', 'category' => Item::RAW_CATEGORY_BY_CODE[$c] ?? 'Grocery', 'unit' => $u, 'buy_unit' => $bu, 'buy_factor' => $f, 'last_price' => $p, 'reorder_level' => $r]);
         }
         foreach ([['CS-001', 'Food Box 1000ml', 'ফুড বক্স', 'pc', 9, 1000], ['CS-002', 'Gas Cylinder 35 kg', 'গ্যাস সিলিন্ডার', 'pc', 4200, 4], ['CS-003', 'Tissue Pack', 'টিস্যু', 'pc', 45, 100], ['CS-004', 'Dish Soap', 'ডিশ সোপ', 'L', 220, 10]] as [$c, $n, $b, $u, $p, $r]) {
             Item::create(['code' => $c, 'name' => $n, 'name_bn' => $b, 'type' => 'CONSUMABLE', 'category' => 'Consumable', 'unit' => $u, 'last_price' => $p, 'reorder_level' => $r]);

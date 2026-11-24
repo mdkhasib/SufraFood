@@ -60,7 +60,8 @@ class DeliveryController extends Controller
         $u = $r->user();
         $branches = $this->branches($r);
         abort_if($branches->isEmpty(), 403, 'Delivery orders are taken for branches.');
-        $menu = Item::where('type', 'MENU')->where('active', true)->orderBy('category')->orderBy('name')->get(['id', 'code', 'name', 'name_bn', 'category', 'sale_price']);
+        $menu = Item::where('type', 'MENU')->where('active', true)->orderBy('category')->orderBy('name')->get(['id', 'code', 'name', 'name_bn', 'category', 'sale_price', 'image'])
+            ->map(fn ($i) => $i->only(['id', 'code', 'name', 'name_bn', 'category', 'sale_price']) + ['img' => $i->imageUrl()]);
         $methods = PaymentMethod::where('active', true)->where('type', '!=', 'CASH')->get(['id', 'name', 'type']);
         $cfg = ['vat' => (float) \App\Support\Features::setting('pos.vat_percent', 5), 'sc' => (float) \App\Support\Features::setting('pos.service_charge_percent', 0), 'discount_limit' => $u->is_super_admin ? 100 : (float) ($u->discount_limit ?? 0)];
         $recent = PosOrder::where('order_type', 'DELIVERY')->whereNotNull('customer_phone')->latest('id')->limit(300)->get(['customer_phone', 'customer_name', 'delivery_address', 'delivery_area'])->unique('customer_phone')->values();

@@ -19,7 +19,7 @@
   <tr>
     @foreach($cfg['list'] as $k=>$label)
       @php($v = $k === '_balance' ? \App\Support\Ui::tk($row->balance()) : data_get($row, $k))
-      <td>@if(is_bool($v)) {{ $v ? '✓' : '—' }} @elseif($k==='status' || $k==='type') {!! \App\Support\Ui::badge($v) !!} @else {{ $v instanceof \Carbon\Carbon ? $v->format('d M Y') : $v }} @endif
+      <td>@if($k === '_image')@if($row->image)<img src="{{ $row->imageUrl() }}" class="h-10 w-10 rounded-lg object-cover border" alt="">@else<div class="h-10 w-10 rounded-lg bg-slate-100 grid place-items-center text-slate-300">📷</div>@endif @elseif(is_bool($v)) {{ $v ? '✓' : '—' }} @elseif($k==='status' || $k==='type') {!! \App\Support\Ui::badge($v) !!} @else {{ $v instanceof \Carbon\Carbon ? $v->format('d M Y') : $v }} @endif
         @if($k==='name' && $cfg['res']==='users' && $row->is_company_admin) <span class="badge bg-slate-800 text-white">Company Admin</span>@endif</td>
     @endforeach
     <td class="whitespace-nowrap text-right">

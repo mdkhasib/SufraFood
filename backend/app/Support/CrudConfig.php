@@ -51,15 +51,35 @@ class CrudConfig
                 ],
             ],
             'departments' => ['title' => 'Departments', 'model' => Department::class, 'access' => ['admin'], 'order' => 'name', 'list' => ['name' => 'Name', 'name_bn' => 'বাংলা'], 'fields' => fn () => ['name' => ['Name', 'text', 'required'], 'name_bn' => ['Name (বাংলা)', 'text']]],
-            'items' => [
-                'title' => 'Items & menu', 'model' => \App\Models\Item::class, 'access' => ['inventory.manage'], 'order' => 'code', 'search' => ['name', 'code', 'name_bn'],
-                'filter' => ['type' => ['Type', fn () => ['RAW' => 'Raw', 'SEMI' => 'Semi (CK)', 'MENU' => 'Menu', 'CONSUMABLE' => 'Consumable', 'ASSET' => 'Asset']]],
-                'list' => ['code' => 'Code', 'name' => 'Name', 'name_bn' => 'বাংলা', 'type' => 'Type', 'unit' => 'Unit', 'last_price' => 'Cost ৳', 'sale_price' => 'Sale ৳', 'reorder_level' => 'Reorder', 'production_at' => 'Cooked at'],
+            // sale items (POS / delivery menu) — always type MENU
+            'menu_items' => [
+                'title' => 'Sale items (menu)', 'model' => \App\Models\Item::class, 'access' => ['inventory.manage'], 'order' => 'category', 'search' => ['name', 'code', 'name_bn', 'category'],
+                'scope' => fn ($q) => $q->whereIn('type', \App\Models\Item::SALE_TYPES), 'fixed' => ['type' => 'MENU'], 'defaults' => ['production_at' => 'BRANCH', 'buy_factor' => 1, 'unit' => 'plate'],
+                'filter' => ['category' => ['Category', fn () => array_combine($c = \App\Models\Item::whereIn('type', \App\Models\Item::SALE_TYPES)->whereNotNull('category')->distinct()->orderBy('category')->pluck('category')->all(), $c)]],
+                'list' => ['_image' => '', 'code' => 'Code', 'name' => 'Name', 'name_bn' => 'বাংলা', 'category' => 'Category', 'sale_price' => 'Sale ৳', 'production_at' => 'Cooked at', 'active' => 'Active'],
+                'rules' => ['code' => 'unique:items,code,{id}', 'sale_price' => 'required|numeric|gt:0'],
                 'fields' => fn () => [
-                    'code' => ['Code', 'text', 'required'], 'name' => ['Name', 'text', 'required'], 'name_bn' => ['Name (বাংলা)', 'text'],
-                    'type' => ['Type', 'select', ['RAW' => 'Raw material', 'SEMI' => 'Semi-finished (CK)', 'MENU' => 'Menu item (POS)', 'CONSUMABLE' => 'Consumable', 'ASSET' => 'Equipment / asset']],
-                    'category' => ['Category', 'text'], 'unit' => ['Stock unit', 'text', 'required'], 'buy_unit' => ['Buying unit', 'text'], 'buy_factor' => ['Units per buying unit', 'number'],
-                    'last_price' => ['Last cost ৳', 'number'], 'sale_price' => ['Sale price ৳ (menu)', 'number'], 'reorder_level' => ['Reorder level', 'number'],
+                    'image' => ['Product photo (shown on the POS and delivery menu)', 'image'],
+                    'code' => ['Code (e.g. MN-012)', 'text', 'required'], 'name' => ['Name', 'text', 'required'], 'name_bn' => ['Name (বাংলা)', 'text'],
+                    'category' => ['Category', 'suggest', \App\Models\Item::categorySuggestions(true)],
+                    'sale_price' => ['Sale price ৳', 'number', 'required'], 'unit' => ['Sold per (plate, pcs, glass…)', 'text', 'required'],
+                    'production_at' => ['Cooked at', 'select', ['BRANCH' => 'Branch kitchen', 'CENTRAL' => 'Central kitchen', 'NONE' => 'Ready-made (no cooking)']], 'active' => ['On the menu (active)', 'bool'],
+                ],
+            ],
+            // stock items: raw materials, central kitchen items, consumables, equipment — never sold on the POS
+            'items' => [
+                'title' => 'Raw materials & stock', 'model' => \App\Models\Item::class, 'access' => ['inventory.manage'], 'order' => 'code', 'search' => ['name', 'code', 'name_bn', 'category'],
+                'scope' => fn ($q) => $q->whereIn('type', \App\Models\Item::STOCK_TYPES), 'defaults' => ['production_at' => 'NONE', 'buy_factor' => 1],
+                'filter' => ['type' => ['Type', fn () => ['RAW' => 'Raw material', 'SEMI' => 'Semi (CK)', 'CONSUMABLE' => 'Consumable', 'ASSET' => 'Asset']],
+                    'category' => ['Category', fn () => array_combine($c = \App\Models\Item::whereIn('type', \App\Models\Item::STOCK_TYPES)->whereNotNull('category')->distinct()->orderBy('category')->pluck('category')->all(), $c)]],
+                'list' => ['_image' => '', 'code' => 'Code', 'name' => 'Name', 'name_bn' => 'বাংলা', 'type' => 'Type', 'category' => 'Category', 'unit' => 'Unit', 'last_price' => 'Cost ৳', 'reorder_level' => 'Reorder', 'production_at' => 'Cooked at'],
+                'rules' => ['code' => 'unique:items,code,{id}', 'type' => 'required|in:RAW,SEMI,CONSUMABLE,ASSET'],
+                'fields' => fn () => [
+                    'image' => ['Photo (optional)', 'image'],
+                    'code' => ['Code (e.g. RM-020)', 'text', 'required'], 'name' => ['Name', 'text', 'required'], 'name_bn' => ['Name (বাংলা)', 'text'],
+                    'type' => ['Type', 'select', ['RAW' => 'Raw material', 'SEMI' => 'Semi-finished (central kitchen)', 'CONSUMABLE' => 'Consumable', 'ASSET' => 'Equipment / asset'], 'required'],
+                    'category' => ['Category', 'suggest', \App\Models\Item::categorySuggestions(false)], 'unit' => ['Stock unit', 'text', 'required'], 'buy_unit' => ['Buying unit', 'text'], 'buy_factor' => ['Units per buying unit', 'number'],
+                    'last_price' => ['Last cost ৳', 'number'], 'reorder_level' => ['Reorder level', 'number'],
                     'production_at' => ['Cooked at', 'select', ['NONE' => '—', 'CENTRAL' => 'Central kitchen', 'BRANCH' => 'Branch kitchen']], 'active' => ['Active', 'bool'],
                 ],
             ],

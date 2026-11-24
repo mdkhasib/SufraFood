@@ -95,6 +95,9 @@ class RequisitionService
             $total = 0;
             foreach ($lines as $l) {
                 $item = ! empty($l['item_id']) ? Item::find($l['item_id']) : null;
+                if ($item && $item->isSaleItem()) { // menu (sale) items are never requested / bought as stock
+                    throw new BizException($item->name.' is a sale (menu) item. Request its raw materials or the central kitchen item instead.');
+                }
                 $price = (float) ($l['est_price'] ?? $item?->last_price ?? 0);
                 $r->lines()->create(['item_id' => $item?->id, 'description' => $l['description'] ?? null, 'qty_requested' => (float) $l['qty'], 'est_price' => $price, 'note' => $l['note'] ?? null]);
                 $total += $price * (float) $l['qty'];

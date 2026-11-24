@@ -63,7 +63,8 @@ class RequisitionController extends Controller
 
     public function items(Request $r)
     {
-        $q = Item::where('active', true)->orderBy('name');
+        // stock items only: sale (menu) items are not requested or bought
+        $q = Item::where('active', true)->whereIn('type', Item::STOCK_TYPES)->orderBy('name');
         if ($r->filled('types')) {
             $q->whereIn('type', explode(',', $r->types));
         }

@@ -74,7 +74,8 @@ class Menu
             'Company setup' => [
                 ['Locations', ['crud.index', 'locations'], 'map', $admin],
                 ['Departments', ['crud.index', 'departments'], 'grid', $admin],
-                ['Items & menu', ['crud.index', 'items'], 'box', ($admin && $on('inventory.stock', 'pos.core')) || $p('inventory.manage')],
+                ['Sale items (menu)', ['crud.index', 'menu_items'], 'monitor', ($admin && $on('pos.core', 'inventory.stock')) || $p('inventory.manage')],
+                ['Raw materials & stock', ['crud.index', 'items'], 'box', ($admin && $on('inventory.stock')) || $p('inventory.manage')],
                 ['Shifts', ['crud.index', 'shift_templates'], 'clock', ($admin && $on('shifts.roster')) || $p('shifts.manage')],
                 ['Leave types', ['crud.index', 'leave_types'], 'sun', ($admin && $on('leave.request')) || $p('leave.manage')],
                 ['Holidays', ['crud.index', 'holidays'], 'calendar', ($admin && $on('leave.request', 'payroll.run')) || $p('leave.manage')],

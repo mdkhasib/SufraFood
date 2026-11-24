@@ -22,10 +22,18 @@ class CrudController extends Controller
         return $cfg;
     }
 
+    /** Rows this page manages (e.g. sale items only). */
+    protected function query(array $cfg)
+    {
+        $q = $cfg['model']::query();
+
+        return isset($cfg['scope']) ? ($cfg['scope'])($q) : $q;
+    }
+
     public function index(Request $r, string $res)
     {
         $cfg = $this->cfg($r, $res);
-        $q = $cfg['model']::query()->with($cfg['with'] ?? []);
+        $q = $this->query($cfg)->with($cfg['with'] ?? []);
         if ($res === 'users') {
             $q->where('is_super_admin', false);
         }
@@ -53,7 +61,7 @@ class CrudController extends Controller
     {
         $cfg = $this->cfg($r, $res);
 
-        return view('crud.form', ['cfg' => $cfg, 'row' => $cfg['model']::findOrFail($id), 'fields' => ($cfg['fields'])()]);
+        return view('crud.form', ['cfg' => $cfg, 'row' => $this->query($cfg)->findOrFail($id), 'fields' => ($cfg['fields'])()]);
     }
 
     protected function data(Request $r, array $cfg, $row = null): array
@@ -65,22 +73,41 @@ class CrudController extends Controller
                 $rules[$k] = 'required';
             }
         }
-        $r->validate($rules);
+        foreach ($cfg['rules'] ?? [] as $k => $rule) {
+            $rules[$k] = trim(($rules[$k] ?? '').'|'.str_replace('{id}', (string) ($row?->id ?? 'NULL'), $rule), '|');
+        }
+        foreach ($fields as $k => $f) {
+            if ($f[1] === 'image') {
+                $rules[$k] = 'nullable|image|mimes:png,jpg,jpeg,webp|max:3072';
+            }
+        }
+        $r->validate($rules, [], collect($fields)->map(fn ($f) => $f[0])->all());
         $data = [];
         foreach ($fields as $k => $f) {
             $v = $r->input($k);
-            if ($f[1] === 'bool') {
+            if ($f[1] === 'image') {
+                if ($r->hasFile($k)) {
+                    $v = $r->file($k)->store($cfg['res'] === 'users' ? 'people' : 'products', 'public');
+                } elseif ($r->boolean($k.'__remove')) {
+                    $v = null;
+                } else {
+                    continue;
+                }
+            } elseif ($f[1] === 'bool') {
                 $v = $r->boolean($k);
             } elseif ($f[1] === 'password') {
                 if (! $v) {
                     continue;
                 }
                 $v = Hash::make($v);
+            } elseif (($v === '' || $v === null) && array_key_exists($k, $cfg['defaults'] ?? [])) {
+                $v = $cfg['defaults'][$k]; // e.g. "Cooked at" left empty → NONE, units per buying unit → 1
             } elseif ($v === '' || $v === null) {
                 $v = in_array($f[1], ['number']) && ! str_contains($f[0], 'limit') && ! in_array($k, ['lat', 'lng']) ? 0 : null;
             }
             $data[$k] = $v;
         }
+        $data = array_merge($data, $cfg['fixed'] ?? []);
         if ($cfg['res'] === 'users') {
             if (! $row && empty($data['password'])) {
                 $data['password'] = Hash::make('123456');
@@ -107,7 +134,7 @@ class CrudController extends Controller
     public function update(Request $r, string $res, int $id)
     {
         $cfg = $this->cfg($r, $res);
-        $row = $cfg['model']::findOrFail($id);
+        $row = $this->query($cfg)->findOrFail($id);
         $before = $row->toArray();
         $row->update($this->data($r, $cfg, $row));
         Audit::log('master.updated', $row, $before, $row->fresh()->toArray());
@@ -118,7 +145,7 @@ class CrudController extends Controller
     public function destroy(Request $r, string $res, int $id)
     {
         $cfg = $this->cfg($r, $res);
-        $row = $cfg['model']::findOrFail($id);
+        $row = $this->query($cfg)->findOrFail($id);
         try {
             $row->delete();
         } catch (\Throwable $e) {

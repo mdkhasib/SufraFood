@@ -20,7 +20,8 @@ class PosController extends Controller
     {
         $u = $r->user();
         $shift = PosService::currentShift($u);
-        $menu = Item::where('type', 'MENU')->where('active', true)->orderBy('category')->orderBy('name')->get(['id', 'code', 'name', 'name_bn', 'category', 'sale_price']);
+        $menu = Item::where('type', 'MENU')->where('active', true)->orderBy('category')->orderBy('name')->get(['id', 'code', 'name', 'name_bn', 'category', 'sale_price', 'image'])
+            ->map(fn ($i) => $i->only(['id', 'code', 'name', 'name_bn', 'category', 'sale_price']) + ['img' => $i->imageUrl()]);
         $tables = DiningTable::where('location_id', $shift?->location_id ?? $u->location_id)->get(['id', 'name', 'seats']);
         $methods = PaymentMethod::where('active', true)->get(['id', 'name', 'type']);
         $open = $shift ? PosOrder::with('lines.item', 'table')->where('cashier_shift_id', $shift->id)->where('status', 'OPEN')->where(fn ($w) => $w->whereNull('delivery_status')->orWhereIn('delivery_status', ['COOKING', 'READY']))->get() : collect();

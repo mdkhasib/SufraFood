@@ -21,9 +21,10 @@
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[420px] overflow-y-auto">
         <template x-for="m in menu.filter(m => (!cat || m.category===cat) && (!q || (m.name+' '+(m.name_bn||'')).toLowerCase().includes(q.toLowerCase())))" :key="m.id">
-          <button class="rounded-lg border p-2.5 text-left hover:border-brand-500 active:scale-95 transition" @click="add(m)">
-            <div class="font-semibold text-sm" x-text="m.name"></div><div class="text-xs text-slate-400" x-text="m.name_bn"></div>
-            <div class="text-brand-700 font-bold" x-text="'৳'+(+m.sale_price).toFixed(0)"></div></button>
+          <button class="rounded-lg border overflow-hidden text-left hover:border-brand-500 active:scale-95 transition" @click="add(m)">
+            <template x-if="m.img"><img :src="m.img" class="w-full h-16 object-cover bg-slate-100" alt="" loading="lazy" onerror="this.remove()"></template>
+            <div class="p-2.5 pt-1.5"><div class="font-semibold text-sm" x-text="m.name"></div><div class="text-xs text-slate-400" x-text="m.name_bn"></div>
+            <div class="text-brand-700 font-bold" x-text="'৳'+(+m.sale_price).toFixed(0)"></div></div></button>
         </template>
       </div>
     </div>
