@@ -43,6 +43,14 @@ class SetupController extends Controller
             'receipt.footer' => ['Footer line 1', 'text'],
             'receipt.footer2' => ['Footer line 2 (small)', 'text'],
         ],
+        'Home delivery' => [
+            'delivery.enabled' => ['Home delivery is ON (orders, delivery board, rider tasks)', 'bool'],
+            'delivery.rate_default' => ['Rider bonus per delivery ৳ (default; set each branch below)', 'number'],
+            'delivery.target_minutes' => ['Deliver within (minutes) — rider task due time', 'number'],
+            'delivery.need_kitchen_ready' => ['Rider can pick up only after the kitchen marks it ready', 'bool'],
+            'delivery.riders' => ['Who can be given a delivery', 'select', ['MARKED' => 'Staff ticked “Can do home delivery” (waiters, riders)', 'ALL' => 'Anyone working at that branch']],
+            'delivery.bonus_in_payroll' => ['Add the delivery bonus to the rider’s salary (payroll)', 'bool'],
+        ],
         'Mobile app' => [
             'app.server_url' => ['Server address the app should use (leave empty = this server’s address)', 'text'],
         ],
@@ -77,6 +85,8 @@ class SetupController extends Controller
             'kpi.w_rework' => ['KPI weight: no rework %', 'number'], 'kpi.w_attendance' => ['KPI weight: attendance & punctuality %', 'number'],
         ],
         'Orders, POS & purchase' => [
+            'pos.offline_enabled' => ['POS keeps selling when the network / server is down (offline bills sync later)', 'bool'],
+            'pos.sync_minutes' => ['Sync offline POS bills every (minutes)', 'number'],
             'orders.cutoff_time' => ['Food order cut-off time (next day)', 'time'],
             'pos.vat_percent' => ['POS VAT %', 'number'], 'pos.service_charge_percent' => ['POS service charge %', 'number'],
             'purchase.price_flag_percent' => ['Flag purchase price above last price by %', 'number'],
@@ -127,6 +137,16 @@ class SetupController extends Controller
             if ((string) $old !== (string) $val) {
                 Features::setSetting($k, $val);
                 Audit::log('setting.changed', null, [$k => $old], [$k => $val]);
+            }
+        }
+
+        // per-branch rider rate (Home delivery)
+        foreach ((array) $r->input('branch_rate', []) as $id => $rate) {
+            $l = Location::where('type', 'BRANCH')->find((int) $id);
+            $new = ($rate === null || $rate === '') ? null : max(0, (float) $rate);
+            if ($l && $l->delivery_rate !== $new) {
+                Audit::log('setting.delivery_rate', $l, ['delivery_rate' => $l->delivery_rate], ['delivery_rate' => $new]);
+                $l->update(['delivery_rate' => $new]);
             }
         }
 

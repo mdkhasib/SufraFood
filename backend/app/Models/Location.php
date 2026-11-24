@@ -12,6 +12,7 @@ class Location extends Model
     {
         return [
             'active' => 'boolean',
+            'delivery_rate' => 'float',
             'lat' => 'float',
             'lng' => 'float',
         ];

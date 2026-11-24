@@ -15,7 +15,7 @@
   </div>
   <div class="grid grid-cols-2 gap-6 text-sm">
     <table class="w-full"><tr class="border-b"><th class="text-left py-1">Earnings / আয়</th><th class="text-right">৳</th></tr>
-      @foreach(['Basic'=>$p->basic,'House rent'=>$p->house_rent,'Medical'=>$p->medical,'Conveyance'=>$p->conveyance,'Overtime'=>$p->ot_amount,'KPI incentive'.($p->kpi_score!==null ? ' (score '.$p->kpi_score.')' : '')=>$p->kpi_incentive,'Bonus'=>$p->bonus] as $k=>$v) @if($v>0)<tr><td class="py-0.5">{{ $k }}</td><td class="text-right">{{ number_format($v) }}</td></tr>@endif @endforeach
+      @foreach(['Basic'=>$p->basic,'House rent'=>$p->house_rent,'Medical'=>$p->medical,'Conveyance'=>$p->conveyance,'Overtime'=>$p->ot_amount,'KPI incentive'.($p->kpi_score!==null ? ' (score '.$p->kpi_score.')' : '')=>$p->kpi_incentive,'Home delivery bonus'.($p->delivery_count ? ' ('.$p->delivery_count.' × deliveries)' : '')=>$p->delivery_bonus,'Bonus'=>$p->bonus] as $k=>$v) @if($v>0)<tr><td class="py-0.5">{{ $k }}</td><td class="text-right">{{ number_format($v) }}</td></tr>@endif @endforeach
       <tr class="border-t font-bold"><td>Gross</td><td class="text-right">{{ number_format($p->gross) }}</td></tr></table>
     <table class="w-full"><tr class="border-b"><th class="text-left py-1">Deductions / কর্তন</th><th class="text-right">৳</th></tr>
       @foreach(['Late deduction'=>$p->late_deduction,'Absent deduction'=>$p->absent_deduction,'Advance instalment'=>$p->advance_deduction] as $k=>$v) @if($v>0)<tr><td class="py-0.5">{{ $k }}</td><td class="text-right">{{ number_format($v) }}</td></tr>@endif @endforeach

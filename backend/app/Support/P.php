@@ -60,7 +60,27 @@ class P
             'remind_before' => $t->remind_before_minutes, 'remind_every' => $t->repeatEvery(), 'reminders_sent' => $t->reminders_sent,
             'last_reminded' => $t->last_reminded_at?->format('h:i A'),
             'notify_on_done' => (bool) $t->notify_on_done, 'notify_on_start' => (bool) $t->notify_on_start,
+            'delivery' => static::taskDelivery($t),
             'can_remind' => ($me = auth()->user()) ? in_array($t->status, ['ASSIGNED', 'STARTED']) && $t->assignee_id !== $me->id && ($t->assigned_by === $me->id || $me->is_super_admin || in_array($t->assignee_id, $me->subordinateIdsCached())) : false,
+        ];
+    }
+
+    /** Customer, address, items and cash to collect for a rider's delivery task. */
+    public static function taskDelivery(Task $t): ?array
+    {
+        $o = $t->deliveryOrder();
+        if (! $o) {
+            return null;
+        }
+        $o->loadMissing('lines.item', 'location');
+
+        return [
+            'order_id' => $o->id, 'number' => $o->number, 'status' => $o->delivery_status, 'kitchen_ready' => $o->delivery_status !== 'COOKING',
+            'customer_name' => $o->customer_name, 'phone' => $o->customer_phone, 'address' => $o->delivery_address, 'area' => $o->delivery_area,
+            'note' => $o->delivery_note, 'maps' => $o->mapsUrl(), 'branch' => $o->location?->name, 'branch_phone' => $o->location?->phone,
+            'items' => $o->lines->map(fn ($l) => ['name' => $l->item->name, 'name_bn' => $l->item->name_bn, 'qty' => (float) $l->qty])->values(),
+            'total' => (float) $o->total, 'collect' => $o->toCollect(), 'paid' => $o->status === 'PAID',
+            'cash_collected' => $o->cash_collected, 'delivered_at' => $o->delivered_at?->format('h:i A'),
         ];
     }
 

@@ -47,13 +47,16 @@ class PosService
         if (! $lines) {
             throw new BizException('Add items to the order.');
         }
+        // home delivery from the counter: needs the customer's phone + address; it then goes to the delivery board
+        $delivery = ($data['order_type'] ?? 'DINE_IN') === 'DELIVERY' && \App\Support\Delivery::on();
+        $cust = $delivery ? DeliveryService::customerFields($data) : ['customer_phone' => $data['customer_phone'] ?? null];
 
-        return DB::transaction(function () use ($u, $data, $shift, $lines) {
-            $o = PosOrder::create([
+        $order = DB::transaction(function () use ($u, $data, $shift, $lines, $delivery, $cust) {
+            $o = PosOrder::create(array_merge($cust, [
                 'number' => Numbering::next('POS', 'pos_orders'), 'location_id' => $shift->location_id, 'cashier_id' => $u->id,
                 'cashier_shift_id' => $shift->id, 'order_type' => $data['order_type'] ?? 'DINE_IN',
-                'dining_table_id' => $data['dining_table_id'] ?? null, 'customer_phone' => $data['customer_phone'] ?? null,
-            ]);
+                'dining_table_id' => ($data['order_type'] ?? 'DINE_IN') === 'DINE_IN' ? ($data['dining_table_id'] ?? null) : null,
+            ], $delivery ? ['source' => 'POS', 'payment_mode' => 'COD', 'delivery_status' => 'COOKING'] : []));
             $sub = 0;
             foreach ($lines as $l) {
                 $item = Item::where('type', 'MENU')->findOrFail($l['item_id']);
@@ -65,9 +68,14 @@ class PosService
 
             return $o->fresh('lines.item');
         });
+        if ($delivery) {
+            DeliveryService::afterPlaced($order, $u);
+        }
+
+        return $order;
     }
 
-    protected static function price(PosOrder $o, User $u, float $sub, float $discount): void
+    public static function price(PosOrder $o, User $u, float $sub, float $discount): void
     {
         $discount = max(0, $discount);
         if ($discount > $sub) {
@@ -85,7 +93,7 @@ class PosService
     }
 
     /** payments: [[payment_method_id, amount, reference?]] — cash may exceed (change is given back). */
-    public static function pay(PosOrder $o, User $u, array $payments): PosOrder
+    public static function pay(PosOrder $o, User $u, array $payments, $at = null): PosOrder
     {
         if ($o->status !== 'OPEN') {
             throw new BizException('Order is already '.strtolower($o->status).'.');
@@ -96,7 +104,8 @@ class PosService
             throw new BizException('Paid ৳'.number_format($sum, 2).' is less than total ৳'.number_format($o->total, 2).'.');
         }
         $change = round($sum - $o->total, 2);
-        DB::transaction(function () use ($o, $u, $payments, $change) {
+        $at = $at ? \Illuminate\Support\Carbon::parse($at) : now();
+        DB::transaction(function () use ($o, $u, $payments, $change, $at) {
             $moneyLines = [];
             foreach ($payments as $p) {
                 $pm = PaymentMethod::findOrFail($p['payment_method_id']);
@@ -142,8 +151,8 @@ class PosService
                 $lines[] = ['code' => '5000', 'debit' => round($cogs, 2), 'location_id' => $loc];
                 $lines[] = ['code' => '1200', 'credit' => round($cogs, 2), 'location_id' => $loc];
             }
-            LedgerService::post('POS sale '.$o->number, $lines, $o, $loc);
-            $o->update(['status' => 'PAID', 'paid_at' => now()]);
+            LedgerService::post('POS sale '.$o->number, $lines, $o, $loc, $at);
+            $o->update(['status' => 'PAID', 'paid_at' => $at] + ($o->delivery_status && $o->delivery_status !== 'DELIVERED' ? ['payment_mode' => 'PREPAID'] : []));
         });
 
         return $o->fresh('lines.item', 'payments.paymentMethod');
@@ -174,9 +183,11 @@ class PosService
         if ($s->closed_at) {
             throw new BizException('Shift already closed.');
         }
-        if (PosOrder::where('cashier_shift_id', $s->id)->where('status', 'OPEN')->exists()) {
+        if (PosOrder::where('cashier_shift_id', $s->id)->where('status', 'OPEN')->whereNull('delivery_status')->exists()) {
             throw new BizException('Settle or void open orders first.');
         }
+        // unpaid home deliveries stay on the delivery board; whoever receives the rider's cash settles them
+        PosOrder::where('cashier_shift_id', $s->id)->where('status', 'OPEN')->whereNotNull('delivery_status')->update(['cashier_shift_id' => null]);
         $cash = (float) PosPayment::whereHas('order', fn ($q) => $q->where('cashier_shift_id', $s->id)->where('status', 'PAID'))
             ->whereHas('paymentMethod', fn ($q) => $q->where('type', 'CASH'))->sum('amount');
         $expected = round($s->opening_cash + $cash, 2);

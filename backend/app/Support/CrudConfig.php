@@ -30,7 +30,7 @@ class CrudConfig
                     'role_id' => ['Role', 'select', Role::orderBy('name')->pluck('name', 'id')->all()], 'location_id' => ['Location', 'select', Location::orderBy('name')->pluck('name', 'id')->all()],
                     'department_id' => ['Department', 'select', Department::orderBy('name')->pluck('name', 'id')->all()],
                     'manager_id' => ['Reports to', 'select', User::where('is_super_admin', false)->orderBy('name')->get()->mapWithKeys(fn ($u) => [$u->id => $u->name.' ('.$u->employee_code.')'])->all()],
-                    'position' => ['Position', 'text'], 'employment_type' => ['Employment type', 'select', ['PERMANENT' => 'Permanent', 'PROBATION' => 'Probation', 'PART_TIME' => 'Part-time', 'DAILY_WAGE' => 'Daily wage']],
+                    'position' => ['Position', 'text'], 'can_deliver' => ['Can do home delivery (rider)', 'bool'], 'employment_type' => ['Employment type', 'select', ['PERMANENT' => 'Permanent', 'PROBATION' => 'Probation', 'PART_TIME' => 'Part-time', 'DAILY_WAGE' => 'Daily wage']],
                     'joined_at' => ['Joined', 'date'], 'status' => ['Status', 'select', ['ACTIVE' => 'Active', 'INACTIVE' => 'Inactive', 'LEFT' => 'Left']],
                     'basic_salary' => ['Basic salary ৳', 'number'], 'house_rent' => ['House rent ৳', 'number'], 'medical' => ['Medical ৳', 'number'], 'conveyance' => ['Conveyance ৳', 'number'],
                     'payout_method' => ['Salary paid by', 'select', ['CASH' => 'Cash', 'BANK' => 'Bank', 'MFS' => 'MFS (bKash/Nagad)']], 'payout_account' => ['Bank / MFS number', 'text'],

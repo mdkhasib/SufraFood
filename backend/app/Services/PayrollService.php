@@ -81,18 +81,20 @@ class PayrollService
             $kpiScore = KpiService::score($u, $start->format('Y-m'))['score'];
             $kpiAmt = KpiService::incentive($kpiScore);
         }
+        // home delivery bonus: count × the branch's per-delivery rate (Company settings → Home delivery)
+        [$delCount, $delBonus] = (int) Features::setting('delivery.bonus_in_payroll', 1) ? DeliveryService::payrollFor($u->id, $start) : [0, 0];
         $advDed = 0;
         foreach (SalaryAdvance::where('user_id', $u->id)->where('status', 'PAID')->where('remaining', '>', 0)->get() as $adv) {
             $advDed += min($adv->installment, $adv->remaining);
         }
-        $gross = round($u->basic_salary + $u->house_rent + $u->medical + $u->conveyance + $otAmt + $kpiAmt, 2);
+        $gross = round($u->basic_salary + $u->house_rent + $u->medical + $u->conveyance + $otAmt + $kpiAmt + $delBonus, 2);
         $ded = round($lateDed + $absentDed + $advDed, 2);
 
         return Payslip::create([
             'payroll_run_id' => $run->id, 'user_id' => $u->id, 'location_id' => $u->location_id,
             'basic' => $u->basic_salary, 'house_rent' => $u->house_rent, 'medical' => $u->medical, 'conveyance' => $u->conveyance,
             'rostered_days' => $rosters->count(), 'present_days' => $atts->count(), 'absent_days' => $absent, 'leave_days' => $leave,
-            'late_count' => $late, 'ot_hours' => $otHours, 'ot_amount' => $otAmt, 'kpi_score' => $kpiScore, 'kpi_incentive' => $kpiAmt,
+            'late_count' => $late, 'ot_hours' => $otHours, 'ot_amount' => $otAmt, 'kpi_score' => $kpiScore, 'kpi_incentive' => $kpiAmt, 'delivery_count' => $delCount, 'delivery_bonus' => $delBonus,
             'late_deduction' => $lateDed, 'absent_deduction' => $absentDed, 'advance_deduction' => round($advDed, 2),
             'gross' => $gross, 'total_deduction' => $ded, 'net' => round(max(0, $gross - $ded), 2), 'payout_method' => $u->payout_method,
         ]);

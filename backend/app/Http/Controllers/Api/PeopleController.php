@@ -63,7 +63,7 @@ class PeopleController extends Controller
     {
         $path = $r->hasFile('photo') ? $r->file('photo')->store('proofs', 'public') : null;
 
-        return P::task(TaskService::complete($task, $r->user(), $r->input('note'), $path));
+        return P::task(TaskService::complete($task, $r->user(), $r->input('note'), $path, $r->filled('cash') ? (float) $r->input('cash') : null));
     }
 
     public function reviewTask(Request $r, Task $task)

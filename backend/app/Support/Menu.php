@@ -48,6 +48,8 @@ class Menu
                 ['POS billing', 'pos', 'monitor', $p('pos.sell')],
                 ['Kitchen display', 'pos.kds', 'tv', $p('pos.kds')],
                 ['POS orders', 'pos.orders', 'list', $p('pos.sell', 'pos.void')],
+                ['Home delivery', 'delivery.index', 'truck', \App\Support\Delivery::canView($u)],
+                ['Delivery report', 'delivery.report', 'chart', \App\Support\Delivery::on() && $p('delivery.manage', 'payroll.manage', 'delivery.order')],
                 ['Day summary', 'pos.summary', 'chart', $p('pos.void', 'reports.management', 'acc.view') && $u->featureOn('pos.core')],
             ],
             'People & HR' => [

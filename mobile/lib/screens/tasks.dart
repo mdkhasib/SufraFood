@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
 import '../core/i18n.dart';
@@ -24,13 +25,17 @@ class TaskTile extends StatelessWidget {
           await showModalBottomSheet(context: context, isScrollControlled: true, showDragHandle: true, builder: (_) => TaskSheet(task: task, team: team));
           await onChanged();
         },
-        leading: Icon(
+        leading: task['delivery'] != null && task['status'] != 'DONE'
+            ? Icon(Icons.delivery_dining, color: task['delivery']['kitchen_ready'] == true ? Colors.green : Colors.orange, size: 30)
+            : Icon(
           task['status'] == 'DONE' ? Icons.check_circle : (overdue ? Icons.warning_amber : (task['priority'] == 'URGENT' ? Icons.priority_high : Icons.radio_button_unchecked)),
           color: task['status'] == 'DONE' ? Colors.green : (overdue || task['priority'] == 'URGENT' ? Colors.red : (task['priority'] == 'HIGH' ? Colors.orange : Colors.grey)),
         ),
         title: Text(taskTitle(task), style: TextStyle(fontWeight: FontWeight.w600, decoration: task['status'] == 'DONE' ? TextDecoration.lineThrough : null)),
         subtitle: Text([
           '${t('Due')} ${task['due_label']}',
+          if (task['delivery'] != null) '🛵 ${task['delivery']['area'] ?? task['delivery']['address']}',
+          if (task['delivery'] != null && task['status'] != 'DONE') task['delivery']['kitchen_ready'] == true ? t('Food ready') : t('Kitchen preparing'),
           if (team && task['assignee'] != null) task['assignee']['name'],
           if (task['priority'] == 'URGENT') t('Top priority') else if (task['priority'] == 'HIGH') t('High'),
           if (task['team'] != null) task['team'],
@@ -54,8 +59,70 @@ class TaskSheet extends StatefulWidget {
 
 class _TaskSheetState extends State<TaskSheet> {
   final note = TextEditingController();
+  late final cash = TextEditingController(text: _collect > 0 ? (_collect == _collect.roundToDouble() ? _collect.toStringAsFixed(0) : _collect.toStringAsFixed(2)) : '');
   String? photo;
   bool busy = false;
+
+  Map? get _del => widget.task['delivery'] as Map?;
+  double get _collect => (num.tryParse('${_del?['collect'] ?? 0}') ?? 0).toDouble();
+
+  Future<void> _open(Uri u) async {
+    final ok = await launchUrl(u, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) toast(context, u.toString(), error: true);
+  }
+
+  String _qty(dynamic q) => q is num && q == q.roundToDouble() ? '${q.toInt()}' : '$q';
+
+  Widget _deliveryCard(Map d) {
+    final items = List.from(d['items'] ?? []);
+    final ready = d['kitchen_ready'] == true;
+    final bn = Session.I.lang == 'bn';
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.orange.withValues(alpha: .08), border: Border.all(color: Colors.orange.shade200), borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.delivery_dining, color: Colors.deepOrange),
+          const SizedBox(width: 6),
+          Text('${d['number']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          const Spacer(),
+          StatusChip('${d['status'] ?? ''}'),
+        ]),
+        if (d['status'] == 'COOKING' || d['status'] == 'READY')
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              ready ? '✅ ${t('Food is ready: collect it from the kitchen')}' : '🍳 ${t('Kitchen is preparing it. You will get a message when it is ready.')}',
+              style: TextStyle(color: ready ? Colors.green.shade800 : Colors.orange.shade900, fontWeight: FontWeight.w600),
+            ),
+          ),
+        const Divider(),
+        Text('${d['customer_name'] ?? t('Customer')}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        Text('${d['address'] ?? ''}${d['area'] != null ? ' · ${d['area']}' : ''}'),
+        if ('${d['note'] ?? ''}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('📝 ${d['note']}', style: TextStyle(color: Colors.brown.shade700))),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: OutlinedButton.icon(onPressed: () => _open(Uri(scheme: 'tel', path: '${d['phone']}')), icon: const Icon(Icons.call), label: Text('${d['phone']}'))),
+          if (d['maps'] != null) ...[
+            const SizedBox(width: 8),
+            Expanded(child: OutlinedButton.icon(onPressed: () => _open(Uri.parse('${d['maps']}')), icon: const Icon(Icons.map_outlined), label: Text(t('Map')))),
+          ],
+        ]),
+        const SizedBox(height: 8),
+        for (final i in items) Text('• ${_qty(i['qty'])} × ${bn && '${i['name_bn'] ?? ''}'.isNotEmpty ? i['name_bn'] : i['name']}'),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: _collect > 0 ? Colors.red.withValues(alpha: .08) : Colors.green.withValues(alpha: .1), borderRadius: BorderRadius.circular(8)),
+          child: Text(_collect > 0 ? '💵 ${t('Collect cash')}: ${tk(_collect)}' : '✓ ${t('Already paid · collect nothing')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        ),
+        if (d['branch'] != null)
+          Padding(padding: const EdgeInsets.only(top: 6), child: Text('${t('From')} ${d['branch']}${d['branch_phone'] != null ? ' · ☎ ${d['branch_phone']}' : ''}', style: const TextStyle(color: Colors.grey, fontSize: 12))),
+      ]),
+    );
+  }
 
   Future<void> act(Future<dynamic> Function() f) async {
     setState(() => busy = true);
@@ -77,7 +144,7 @@ class _TaskSheetState extends State<TaskSheet> {
           Text(taskTitle(tk), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
           Row(children: [StatusChip(tk['overdue'] == true ? 'OVERDUE' : st), const SizedBox(width: 8), Text('${t('Due')} ${tk['due_label']}')]),
-          if ((tk['description'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text(tk['description'])),
+          if (_del != null) _deliveryCard(_del!) else if ((tk['description'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text(tk['description'])),
           if (tk['assigned_by'] != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('From: ${tk['assigned_by']}', style: const TextStyle(color: Colors.grey))),
           if (widget.team && tk['assignee'] != null) Text('To: ${tk['assignee']['name']}', style: const TextStyle(color: Colors.grey)),
           if (tk['proof_photo'] != null) Padding(padding: const EdgeInsets.only(top: 12), child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(tk['proof_photo'], height: 180, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Text('photo')))),
@@ -114,7 +181,17 @@ class _TaskSheetState extends State<TaskSheet> {
                 ),
               ),
             ),
-          if (mine && st == 'ASSIGNED')
+          if (mine && st == 'ASSIGNED' && _del != null)
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton.icon(
+                onPressed: busy || _del!['kitchen_ready'] != true ? null : () => act(() => Api.post('/tasks/$id/start')),
+                icon: const Icon(Icons.shopping_bag_outlined),
+                label: Text(_del!['kitchen_ready'] == true ? t('Picked up from kitchen') : t('Wait: kitchen is preparing'), style: const TextStyle(fontSize: 16)),
+              ),
+            )
+          else if (mine && st == 'ASSIGNED')
             SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: busy ? null : () => act(() => Api.post('/tasks/$id/start')), icon: const Icon(Icons.play_arrow), label: Text(t('Start')))),
           if (mine && (st == 'ASSIGNED' || st == 'STARTED')) ...[
             const SizedBox(height: 8),
@@ -127,18 +204,25 @@ class _TaskSheetState extends State<TaskSheet> {
                 icon: Icon(photo == null ? Icons.photo_camera : Icons.check, color: photo == null ? null : Colors.green),
                 label: Text(photo == null ? '${t('Take photo')} (${t('Photo proof needed')})' : '✓ photo ready'),
               ),
-            TextField(controller: note, decoration: InputDecoration(labelText: t('Note'))),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
-                onPressed: busy ? null : () => act(() => Api.multipart('/tasks/$id/complete', {'note': note.text}, filePath: photo)),
-                icon: const Icon(Icons.check),
-                label: Text(t('Done'), style: const TextStyle(fontSize: 18)),
+            if (_del != null && _collect > 0 && st == 'STARTED')
+              TextField(
+                controller: cash,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: '${t('Cash collected')} ৳', prefixIcon: const Icon(Icons.payments_outlined)),
               ),
-            ),
+            if (_del == null || st == 'STARTED') TextField(controller: note, decoration: InputDecoration(labelText: t('Note'))),
+            const SizedBox(height: 12),
+            if (_del == null || st == 'STARTED')
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+                  onPressed: busy ? null : () => act(() => Api.multipart('/tasks/$id/complete', {'note': note.text, if (_del != null && _collect > 0) 'cash': cash.text}, filePath: photo)),
+                  icon: Icon(_del != null ? Icons.where_to_vote : Icons.check),
+                  label: Text(_del != null ? t('Delivered to customer') : t('Done'), style: const TextStyle(fontSize: 18)),
+                ),
+              ),
           ],
           if (widget.team && st == 'SUBMITTED' && Session.I.can('tasks.assign')) ...[
             TextField(controller: note, decoration: InputDecoration(labelText: '${t('Note')} (rework)')),

@@ -161,6 +161,11 @@ class TaskService
     public static function start(Task $t, User $u): Task
     {
         static::ensureAssignee($t, $u);
+        if ($o = $t->deliveryOrder()) { // rider: “Start” = picked up from the kitchen
+            DeliveryService::pickup($o, $u);
+
+            return $t->fresh();
+        }
         if (! in_array($t->status, ['ASSIGNED'])) {
             throw new BizException('Task already started.');
         }
@@ -173,9 +178,14 @@ class TaskService
     }
 
     /** Worker marks done (with proof when required). Tasks assigned by someone go to SUBMITTED for approval only if proof required. */
-    public static function complete(Task $t, User $u, ?string $note = null, ?string $photoPath = null): Task
+    public static function complete(Task $t, User $u, ?string $note = null, ?string $photoPath = null, ?float $cash = null): Task
     {
         static::ensureAssignee($t, $u);
+        if ($o = $t->deliveryOrder()) { // rider: “Done” = delivered to the customer
+            DeliveryService::deliver($o, $u, $cash, $note ?: null);
+
+            return $t->fresh();
+        }
         if (in_array($t->status, ['DONE', 'CANCELLED', 'SUBMITTED'])) {
             throw new BizException('Task is already '.strtolower($t->status).'.');
         }

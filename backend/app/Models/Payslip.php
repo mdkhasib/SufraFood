@@ -19,6 +19,7 @@ class Payslip extends Model
             'ot_amount' => 'float',
             'kpi_incentive' => 'float',
             'bonus' => 'float',
+            'delivery_bonus' => 'float',
             'late_deduction' => 'float',
             'absent_deduction' => 'float',
             'advance_deduction' => 'float',

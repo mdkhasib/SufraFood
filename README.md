@@ -33,7 +33,9 @@ In the app, the server address is pre-set to `http://192.168.110.205:8090`. Chan
 | `E-2001` | 01700000031 | Tanjila Ahmed | Branch Manager, Gulshan | Mobile: Team → **Org chart** / Teams, assign to a team, Remind now; Requests, Dashboard |
 | `E-2004` | 01700000034 | Shafiq Ahmed | Kitchen Team Lead | Proxy check-in for Rubel and Alamgir; assigns his kitchen line |
 | `E-2008` | 01700000038 | Shanto Das | Worker | Mobile: only Today · Tasks · Attendance · Me |
-| `E-2011` | 01700000041 | Mitu Akter | Cashier | Web: POS billing |
+| `E-2011` | 01700000041 | Mitu Akter | Cashier | Web: POS billing, a **DELIVERY** order with the customer's address, then *Cash received* on the Home delivery board |
+| `E-1080` | 01790000080 | Sabrina Yasmin | Online Support (orders) | Web: **Home delivery → New delivery order** for any branch (cash on delivery or already paid by bKash/Nagad/card) |
+| `E-2019` | 01790000219 | Riaz Uddin | Delivery Rider, Gulshan | Mobile: Tasks → the delivery card (customer, Call, Map, cash to collect) → *Picked up from kitchen* → *Delivered* |
 
 130 people in total (`E-2002`–`E-2018` Gulshan team, `E-3001`… `E-7001` other branch managers).
 
@@ -47,7 +49,9 @@ In the app, the server address is pre-set to `http://192.168.110.205:8090`. Chan
 6. **Roles & permissions:** one page: **Overview** (role × module, e.g. "3/4" or "Full") and **Edit all permissions** (every role × every permission, with tick-all per role, per module and per permission), plus a Roles tab to rename or delete roles or change their scope.
 7. **The supply chain:** branch food order → CK → warehouse → purchase (buyer, 1 hour) → back to the branch, as before.
 8. **Logo & POS bill:** Company settings → *Logo & bill (POS)*: upload the logo (also used on the web, the app's login and payslips), tagline, bill title, paper 80 mm / 58 mm / A5, font size, 1 or 2 copies, what to print (address, branch phone, VAT/BIN, Bangla names, cashier, customer), footer lines and auto-print. A live preview shows the result; *Open & test print* prints a sample. In POS, **🧾 Print bill** prints the guest bill before payment, and the paid bill shows cash received and change. Branch phones are set in Setup → Locations.
-9. **Attendance:** GPS **test mode is ON** in the demo. Turn it off in Company settings → Attendance (Super Admin).
+9. **Home delivery:** a cashier (POS → *DELIVERY*) or the online team (`E-1080`, *Home delivery → New delivery order*) places an order for a branch. It shows on that branch's kitchen screen with a 🛵 badge. The branch manager (`E-2001`) opens *Home delivery* and gives it to a rider (staff ticked **Can do home delivery** in Employees: waiters and riders). The rider gets a high-priority task with the customer's name, phone, address, map link, items and the cash to collect. After the kitchen marks it ready, the rider taps *Picked up from kitchen*, then *Delivered* (with the cash collected). The manager or cashier then presses *Cash received*. Each delivery earns the rider that branch's rate (Company settings → *Home delivery*: ON/OFF switch, default ৳ per delivery, a rate per branch, delivery time, who can be a rider, add to payroll). *Delivery report* shows deliveries and bonus per rider, and payroll adds **Home delivery bonus** to the payslip.
+10. **Offline POS:** open the POS (with the shift open) while the network works. If the network or the server goes down (power cut), the POS shows a red **OFFLINE** bar and keeps selling: *Send KOT* prints a kitchen ticket, *Pay* prints the bill with an offline number (`OFF-E2011-261124-001`), cash/card/bKash with TxID, and the bills are kept on that computer. When the server is reachable again they sync by themselves (as soon as the connection is back, and every 10 minutes), or press **🔄 Sync**. Synced bills become normal sales in the cashier's shift, the ledger and the stock, at the price charged, and never twice. Company settings → *Orders, POS & purchase* has the ON/OFF switch and the sync minutes. Reopening the POS page while offline needs Chrome on the server PC (`http://localhost:8090`) or HTTPS; over a plain `http://192.168…` address keep the POS tab open (bills are saved either way). Home delivery orders need the network.
+11. **Attendance:** GPS **test mode is ON** in the demo. Turn it off in Company settings → Attendance (Super Admin).
 
 ## Run it again later
 
@@ -61,7 +65,7 @@ The second command runs every minute: task reminders, overdue escalation, recurr
 ```powershell
 cd D:\GroupBusiness\backend; C:\laragon\bin\php\php-8.3.33-Win32-vs16-x64\php.exe artisan migrate:fresh --seed --force
 ```
-Tests: `php artisan test` (54 feature tests, 1,155 checks, including opening every page as 13 roles) and `flutter test` in `mobile/`.
+Tests: `php artisan test` (63 feature tests, 1,328 checks, including opening every page as 13 roles and the full home delivery flow) and `flutter test` in `mobile/`.
 
 ## Known limits of this version
 

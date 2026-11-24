@@ -53,6 +53,12 @@ class Task extends Model
         };
     }
 
+    /** The home-delivery order behind a rider's task. */
+    public function deliveryOrder(): ?PosOrder
+    {
+        return $this->linked_type === 'PosOrder' && $this->linked_id ? PosOrder::find($this->linked_id) : null;
+    }
+
     public function location()
     {
         return $this->belongsTo(Location::class);

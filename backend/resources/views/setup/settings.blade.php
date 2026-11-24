@@ -48,6 +48,18 @@
             <div class="text-xs text-slate-500 mt-2">{{ __('Thermal printer tip: in the print window choose your POS printer, paper “80 mm” (or 58 mm), margins “None”, and turn off “Headers and footers”.') }}</div>
           </div>
         @endif
+        @if($title === 'Home delivery')
+          <div class="mt-5 border-t pt-4">
+            <div class="font-semibold">{{ __('Rider bonus per delivery, branch by branch') }}</div>
+            <div class="text-xs text-slate-500 mb-2">{{ __('Leave empty to use the default above. The rate at the time of delivery is saved with each delivery.') }}</div>
+            <div class="grid sm:grid-cols-2 gap-2">
+              @foreach(\App\Models\Location::where('type', 'BRANCH')->orderBy('name')->get() as $b)
+                <label class="flex items-center gap-2 rounded-lg border p-2"><span class="flex-1 text-sm">{{ $b->name }}</span><span class="text-slate-400">৳</span><input type="number" step="any" min="0" name="branch_rate[{{ $b->id }}]" value="{{ $b->delivery_rate !== null ? rtrim(rtrim(number_format($b->delivery_rate, 2, '.', ''), '0'), '.') : '' }}" placeholder="{{ (float) \App\Support\Features::setting('delivery.rate_default', 50) }}" class="inp !w-24 !py-1 text-right"></label>
+              @endforeach
+            </div>
+            <div class="text-xs text-slate-500 mt-3">{{ __('Riders: in Employees, tick “Can do home delivery” on waiters / delivery staff. Online team: give people the “Online Support (orders)” role.') }} · <a href="{{ route('delivery.index') }}" class="text-brand-700 font-semibold">{{ __('Open the delivery board') }}</a></div>
+          </div>
+        @endif
         @if($title === 'Mobile app')
           <div class="mt-4 text-sm rounded-lg bg-slate-50 border p-3">{{ __('Phones will be told to use') }}: <b>{{ \App\Support\Brand::serverUrl() }}</b> · <a href="{{ route('app.guide') }}" target="_blank" class="text-brand-700 font-semibold">{{ __('Open the app setup guide') }}</a></div>
         @endif

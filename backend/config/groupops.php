@@ -124,6 +124,8 @@ return [
         'pos.sell' => ['POS billing', 'pos.core', 'POS'],
         'pos.void' => ['POS void / big discount', 'pos.core', 'POS'],
         'pos.kds' => ['Kitchen display', 'pos.kds', 'POS'],
+        'delivery.manage' => ['Home delivery: assign riders, receive cash', 'pos.core', 'Home delivery'],
+        'delivery.order' => ['Home delivery: take orders for any branch (online team)', 'pos.core', 'Home delivery'],
         'acc.view' => ['View accounting', 'acc.core', 'Accounting'],
         'acc.manage' => ['Post entries, pay vendors & claims', 'acc.core', 'Accounting'],
         'hr.employees' => ['Manage employees', null, 'HR'],
@@ -151,12 +153,14 @@ return [
         'warehouse_manager' => ['Warehouse Manager', 'T3', 'LOCATION', ['self', 'teams.view', 'teams.manage', 'tasks.assign', 'tasks.view_team', 'tasks.templates', 'attendance.team_view', 'attendance.proxy_grant', 'req.fulfil', 'req.receive', 'req.create.purchase', 'req.create.supplies', 'req.create.repair', 'inventory.view', 'inventory.manage', 'inventory.count', 'inventory.wastage', 'approvals.act', 'kpi.view_team']],
         'storekeeper' => ['Storekeeper', 'FUNCTION', 'LOCATION', ['self', 'req.fulfil', 'req.receive', 'inventory.view', 'inventory.count', 'inventory.wastage']],
         'ck_head_chef' => ['CK Head Chef', 'T3', 'LOCATION', ['self', 'teams.view', 'teams.manage', 'tasks.assign', 'tasks.view_team', 'tasks.templates', 'attendance.team_view', 'attendance.proxy_grant', 'req.fulfil', 'req.receive', 'req.create.raw_material', 'req.create.supplies', 'req.create.repair', 'inventory.view', 'inventory.wastage', 'inventory.count', 'production.manage', 'production.work', 'approvals.act', 'kpi.view_team']],
-        'branch_manager' => ['Branch Manager', 'T3', 'LOCATION', ['self', 'teams.view', 'teams.manage', 'tasks.assign', 'tasks.view_team', 'tasks.templates', 'shifts.manage', 'attendance.team_view', 'attendance.proxy_grant', 'req.create.food_order', 'req.create.raw_material', 'req.create.supplies', 'req.create.equipment', 'req.create.repair', 'req.create.transfer', 'req.receive', 'req.fulfil', 'req.standing', 'inventory.view', 'inventory.count', 'inventory.wastage', 'approvals.act', 'kpi.view_team', 'pos.void', 'pos.kds', 'reports.management']],
+        'branch_manager' => ['Branch Manager', 'T3', 'LOCATION', ['self', 'teams.view', 'teams.manage', 'tasks.assign', 'tasks.view_team', 'tasks.templates', 'shifts.manage', 'attendance.team_view', 'attendance.proxy_grant', 'req.create.food_order', 'req.create.raw_material', 'req.create.supplies', 'req.create.equipment', 'req.create.repair', 'req.create.transfer', 'req.receive', 'req.fulfil', 'req.standing', 'inventory.view', 'inventory.count', 'inventory.wastage', 'approvals.act', 'kpi.view_team', 'pos.void', 'pos.kds', 'delivery.manage', 'reports.management']],
         'head_chef' => ['Branch Head Chef', 'T3', 'TEAM', ['self', 'teams.view', 'tasks.assign', 'tasks.view_team', 'tasks.templates', 'attendance.team_view', 'attendance.proxy_grant', 'req.create.raw_material', 'req.receive', 'inventory.view', 'inventory.wastage', 'production.work', 'approvals.act', 'kpi.view_team', 'pos.kds']],
         'supervisor' => ['Supervisor / Team Lead', 'T2', 'TEAM', ['self', 'teams.view', 'tasks.assign', 'tasks.view_team', 'attendance.team_view', 'kpi.view_team', 'production.work', 'pos.kds']],
         'catering_manager' => ['Catering Manager', 'T3', 'LOCATION', ['self', 'teams.view', 'teams.manage', 'tasks.assign', 'tasks.view_team', 'attendance.team_view', 'attendance.proxy_grant', 'catering.manage', 'req.create.food_order', 'req.create.supplies', 'req.create.equipment', 'req.receive', 'inventory.view', 'approvals.act', 'kpi.view_team']],
         'driver' => ['Driver', 'FUNCTION', 'SELF', ['self', 'dispatch.drive']],
         'cashier' => ['Cashier', 'FUNCTION', 'LOCATION', ['self', 'pos.sell']],
+        'online_support' => ['Online Support (orders)', 'OFFICE', 'ALL', ['self', 'delivery.order']],
+        'delivery_rider' => ['Delivery Rider', 'FUNCTION', 'SELF', ['self']],
         'worker' => ['Worker', 'T1', 'SELF', ['self']],
     ],
 
@@ -184,6 +188,8 @@ return [
         'orders.cutoff_time' => '20:00',
         'pos.vat_percent' => 5,
         'pos.service_charge_percent' => 0,
+        'pos.offline_enabled' => 1,
+        'pos.sync_minutes' => 10,
         'purchase.price_flag_percent' => 10,
         'company.name' => 'Sufra Food Ltd',
         'company.name_bn' => 'সুফরা ফুড লিমিটেড',
@@ -218,6 +224,13 @@ return [
         'receipt.copies' => 1,
         // Mobile app
         'app.server_url' => '',
+        // Home delivery
+        'delivery.enabled' => 1,
+        'delivery.rate_default' => 50,
+        'delivery.target_minutes' => 45,
+        'delivery.need_kitchen_ready' => 1,
+        'delivery.riders' => 'MARKED',
+        'delivery.bonus_in_payroll' => 1,
     ],
 
     'requisition_types' => [

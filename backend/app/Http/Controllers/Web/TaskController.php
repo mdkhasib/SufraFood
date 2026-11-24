@@ -62,7 +62,7 @@ class TaskController extends Controller
         $u = $r->user();
         match ($action) {
             'start' => TaskService::start($task, $u),
-            'done' => TaskService::complete($task, $u, $r->input('note'), $r->hasFile('photo') ? $r->file('photo')->store('proofs', 'public') : null),
+            'done' => TaskService::complete($task, $u, $r->input('note'), $r->hasFile('photo') ? $r->file('photo')->store('proofs', 'public') : null, $r->filled('cash') ? (float) $r->input('cash') : null),
             'approve' => TaskService::review($task, $u, true),
             'rework' => TaskService::review($task, $u, false, $r->input('note') ?: 'Please redo'),
             'remind' => TaskService::remindNow($task, $u),

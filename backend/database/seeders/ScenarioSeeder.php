@@ -199,6 +199,13 @@ class ScenarioSeeder extends Seeder
         mt_srand(7);
         $menu = Item::where('type', 'MENU')->get();
         $methods = PaymentMethod::where('active', true)->get()->keyBy('name');
+        $customers = [
+            ['customer_name' => 'Rafsan Chowdhury', 'customer_phone' => '01819000111', 'delivery_address' => 'House 22, Road 11, Block C', 'delivery_area' => 'Gulshan-1'],
+            ['customer_name' => 'Nabila Hossain', 'customer_phone' => '01715222333', 'delivery_address' => 'Flat 5B, House 8, Road 27', 'delivery_area' => 'Dhanmondi'],
+            ['customer_name' => 'Arif Mahmud', 'customer_phone' => '01911444555', 'delivery_address' => 'House 14, Sector 7', 'delivery_area' => 'Uttara'],
+            ['customer_name' => 'Sumaiya Akter', 'customer_phone' => '01556777888', 'delivery_address' => 'House 3, Road 2, Section 6', 'delivery_area' => 'Mirpur'],
+            ['customer_name' => 'Tahmid Rahman', 'customer_phone' => '01822999000', 'delivery_address' => 'House 40, Road 12, Block E', 'delivery_area' => 'Banani'],
+        ];
         foreach (['E-2011' => 'BR-GUL', 'E-3004' => 'BR-DHN', 'E-4004' => 'BR-UTT', 'E-5004' => 'BR-MIR', 'E-6004' => 'BR-BAN', 'E-7004' => 'BR-BAS'] as $cashierCode => $loc) {
             $cashier = $this->u($cashierCode);
             $shift = PosService::openShift($cashier, 3000);
@@ -208,15 +215,27 @@ class ScenarioSeeder extends Seeder
                 foreach ($menu->random(mt_rand(1, 4)) as $m) {
                     $lines[] = ['item_id' => $m->id, 'qty' => mt_rand(1, 3)];
                 }
-                $o = PosService::createOrder($cashier, ['order_type' => ['DINE_IN', 'DINE_IN', 'TAKEAWAY', 'DELIVERY'][mt_rand(0, 3)], 'lines' => $lines, 'discount' => mt_rand(1, 10) === 1 ? floor(collect($lines)->sum(fn ($l) => $menu->firstWhere('id', $l['item_id'])->sale_price * $l['qty']) * 0.05) : 0]);
+                $type = ['DINE_IN', 'DINE_IN', 'TAKEAWAY', 'DELIVERY'][mt_rand(0, 3)];
+                $cust = $type === 'DELIVERY' ? $customers[mt_rand(0, count($customers) - 1)] : [];
+                $o = PosService::createOrder($cashier, $cust + ['order_type' => $type, 'lines' => $lines, 'discount' => mt_rand(1, 10) === 1 ? floor(collect($lines)->sum(fn ($l) => $menu->firstWhere('id', $l['item_id'])->sale_price * $l['qty']) * 0.05) : 0]);
                 $pick = mt_rand(1, 10);
                 $pm = $pick <= 4 ? 'Cash' : ($pick <= 6 ? 'Card' : ($pick <= 9 ? 'bKash' : 'Nagad'));
                 $amt = $pm === 'Cash' ? ceil($o->total / 100) * 100 : $o->total;
                 PosService::pay($o, $cashier, [['payment_method_id' => $methods[$pm]->id, 'amount' => $amt, 'reference' => $pm === 'Cash' || $pm === 'Card' ? null : 'TX'.mt_rand(100000, 999999)]]);
+                // earlier home deliveries: already delivered by one of the branch riders
+                if ($o->delivery_status && ($riders = \App\Support\Delivery::riders($o->location_id))->count()) {
+                    $at = now()->subMinutes(mt_rand(60, 600));
+                    $o->update(['delivery_status' => 'DELIVERED', 'rider_id' => $riders[mt_rand(0, $riders->count() - 1)]->id, 'rider_assigned_by' => $o->location->manager_id,
+                        'rider_assigned_at' => $at->copy()->subMinutes(40), 'ready_at' => $at->copy()->subMinutes(25), 'picked_up_at' => $at->copy()->subMinutes(22), 'delivered_at' => $at,
+                        'rider_fee' => \App\Support\Delivery::rate($o->location), 'cash_collected' => $pm === 'Cash' ? $o->total : 0]);
+                    $o->lines()->update(['kot_status' => 'SERVED']);
+                }
             }
             $expected = $shift->opening_cash + (float) \App\Models\PosPayment::whereHas('order', fn ($q) => $q->where('cashier_shift_id', $shift->id))->whereHas('paymentMethod', fn ($q) => $q->where('type', 'CASH'))->sum('amount');
             PosService::closeShift($shift->fresh(), $cashier, $loc === 'BR-GUL' ? $expected - 120 : $expected);
         }
+
+        \App\Models\AppNotification::where('title', 'like', '%New home delivery%')->delete(); // old demo orders are already delivered
 
         // ---------- expenses & wastage ----------
         $acc = $this->u('E-1010');

@@ -24,6 +24,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
             'is_company_admin' => 'boolean',
+            'can_deliver' => 'boolean',
             'joined_at' => 'date',
             'last_seen_at' => 'datetime',
             'basic_salary' => 'float',

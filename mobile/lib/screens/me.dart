@@ -157,6 +157,7 @@ class PayslipsScreen extends StatelessWidget {
                         for (final e in {
                           'Basic': p['basic'], 'House rent': p['house_rent'], 'Medical': p['medical'], 'Conveyance': p['conveyance'],
                           'Overtime (${p['ot_hours']} h)': p['ot_amount'], 'KPI incentive': p['kpi_incentive'],
+                          '${t('Home delivery bonus')} (${p['delivery_count'] ?? 0})': p['delivery_bonus'], 'Bonus': p['bonus'],
                         }.entries)
                           if ((num.tryParse('${e.value}') ?? 0) > 0) infoRow(e.key, tk(e.value)),
                         infoRow('Gross', tk(p['gross'])),

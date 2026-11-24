@@ -10,6 +10,7 @@ use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\HrController;
 use App\Http\Controllers\Web\InventoryController;
 use App\Http\Controllers\Web\PosController;
+use App\Http\Controllers\Web\DeliveryController;
 use App\Http\Controllers\Web\PurchaseController;
 use App\Http\Controllers\Web\RequisitionController;
 use App\Http\Controllers\Web\SetupController;
@@ -157,6 +158,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/pos', [PosController::class, 'index'])->name('pos')->middleware('perm:pos.sell');
     Route::post('/pos/shift/open', [PosController::class, 'open'])->name('pos.open')->middleware('perm:pos.sell');
     Route::post('/pos/shift/close', [PosController::class, 'close'])->name('pos.close')->middleware('perm:pos.sell');
+    Route::get('/pos/ping', [PosController::class, 'ping'])->name('pos.ping')->middleware('perm:pos.sell');
+    Route::post('/pos/sync', [PosController::class, 'sync'])->name('pos.sync')->middleware('perm:pos.sell');
     Route::post('/pos/orders', [PosController::class, 'store'])->name('pos.store')->middleware('perm:pos.sell');
     Route::post('/pos/orders/{order}/pay', [PosController::class, 'pay'])->name('pos.pay')->middleware('perm:pos.sell');
     Route::post('/pos/orders/{order}/void', [PosController::class, 'void'])->name('pos.void')->middleware('perm:pos.void');
@@ -165,6 +168,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/kds', [PosController::class, 'kds'])->name('pos.kds')->middleware('perm:pos.kds');
     Route::get('/kds/feed', [PosController::class, 'kdsFeed'])->name('pos.kds.feed')->middleware('perm:pos.kds');
     Route::post('/kds/{line}/ready', [PosController::class, 'ready'])->name('pos.kds.ready')->middleware('perm:pos.kds');
+    // home delivery (branch manager, cashier, online team; riders work from their tasks)
+    Route::get('/home-delivery', [DeliveryController::class, 'index'])->name('delivery.index');
+    Route::get('/home-delivery/new', [DeliveryController::class, 'create'])->name('delivery.create');
+    Route::post('/home-delivery', [DeliveryController::class, 'store'])->name('delivery.store');
+    Route::get('/home-delivery/report', [DeliveryController::class, 'report'])->name('delivery.report');
+    Route::post('/home-delivery/{order}/{action}', [DeliveryController::class, 'action'])->name('delivery.action')->where('action', 'assign|cash|cancel');
     Route::get('/pos/summary', [PosController::class, 'summary'])->name('pos.summary')->middleware('perm:pos.void|reports.management|acc.view');
 
     // Accounting (web only)

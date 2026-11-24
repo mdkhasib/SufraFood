@@ -32,6 +32,12 @@ const Map<String, String> _bn = {
   'Example: http://192.168.110.205:8090 (office Wi-Fi) or https://ops.sufrafood.com': 'উদাহরণ: http://192.168.110.205:8090 (অফিস Wi-Fi) অথবা https://ops.sufrafood.com',
   'Ask your manager for the address, or open the web login page → “How to set up the app”.': 'ঠিকানা ম্যানেজারের কাছে জেনে নিন, অথবা ওয়েব লগইন পেজে “How to set up the app” দেখুন।',
   'Good morning': 'শুভ সকাল', 'Hello': 'হ্যালো', 'pending approvals': 'অনুমোদন বাকি', 'Sales today': 'আজকের বিক্রি',
+  // home delivery
+  'Customer': 'কাস্টমার', 'Map': 'ম্যাপ', 'Cash collected': 'টাকা নেওয়া হয়েছে', 'Collect cash': 'টাকা নিতে হবে', 'Home delivery bonus': 'হোম ডেলিভারি বোনাস',
+  'Food ready': 'খাবার তৈরি', 'Kitchen preparing': 'রান্না চলছে', 'Already paid · collect nothing': 'আগেই পরিশোধিত · টাকা নিতে হবে না',
+  'Food is ready: collect it from the kitchen': 'খাবার তৈরি: কিচেন থেকে নিয়ে যান',
+  'Kitchen is preparing it. You will get a message when it is ready.': 'রান্না চলছে। তৈরি হলে মেসেজ পাবেন।',
+  'Picked up from kitchen': 'কিচেন থেকে নিয়েছি', 'Wait: kitchen is preparing': 'অপেক্ষা করুন: রান্না চলছে', 'Delivered to customer': 'কাস্টমারকে পৌঁছে দিয়েছি',
 };
 
 /// Translate a UI string to the current language (falls back to English).
