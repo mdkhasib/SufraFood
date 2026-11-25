@@ -41,7 +41,7 @@ tailwind.config = { theme: { extend: {
 @php($menu = \App\Support\Menu::for($me))
 @php($unread = \App\Models\AppNotification::where('user_id', $me->id)->whereNull('read_at')->count())
 <div class="min-h-screen flex">
-  <aside class="fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-200 transform transition md:translate-x-0 overflow-y-auto" :class="side ? 'translate-x-0' : '-translate-x-full'">
+  <aside id="side-menu" class="fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-200 transform transition md:translate-x-0 overflow-y-auto" :class="side ? 'translate-x-0' : '-translate-x-full'">
     <div class="px-5 py-4 border-b border-slate-800">
       <div class="flex items-center gap-2">
         @php($brandLogo = \App\Support\Brand::logoUrl())
@@ -55,7 +55,7 @@ tailwind.config = { theme: { extend: {
           <div class="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{{ __($group) }}</div>
           @foreach($items as $it)
             @php($url = \App\Support\Menu::url($it[1]))
-            <a href="{{ $url }}" class="flex items-center justify-between rounded-lg px-2 py-1.5 {{ url()->current() === $url ? 'bg-brand-600 text-white' : 'hover:bg-slate-800' }}">
+            <a href="{{ $url }}" @if(url()->current() === $url) data-active @endif class="flex items-center justify-between rounded-lg px-2 py-1.5 {{ url()->current() === $url ? 'bg-brand-600 text-white' : 'hover:bg-slate-800' }}">
               <span>{{ __($it[0]) }}</span>
               @if($it[1] === 'notifications' && $unread)<span class="badge bg-red-500 text-white">{{ $unread }}</span>@endif
             </a>
@@ -100,6 +100,18 @@ tailwind.config = { theme: { extend: {
     </footer>
   </div>
 </div>
+<script>
+// keep the side menu where it was: every menu click loads a new page, which would otherwise jump it back to the top
+(function () {
+  var m = document.getElementById('side-menu'); if (!m) return;
+  var saved = null; try { saved = sessionStorage.getItem('sideMenuTop'); } catch (e) {}
+  if (saved !== null) m.scrollTop = +saved;
+  var a = m.querySelector('[data-active]');
+  if (a) { var r = a.getBoundingClientRect(), mr = m.getBoundingClientRect(); if (r.top < mr.top || r.bottom > mr.bottom) a.scrollIntoView({ block: 'center' }); }
+  var save = function () { try { sessionStorage.setItem('sideMenuTop', m.scrollTop); } catch (e) {} };
+  m.addEventListener('scroll', save, { passive: true }); m.addEventListener('click', save); window.addEventListener('pagehide', save);
+})();
+</script>
 @stack('scripts')
 </body>
 </html>

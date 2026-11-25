@@ -120,6 +120,10 @@ class QrOrderService
 
         $items = collect($lines)->map(fn ($l) => (int) ceil((float) $l['qty']).'× '.(Item::find($l['item_id'])?->name))->implode(', ');
         Notifier::send(static::staffIds($t->location_id), '📱 QR order · Table '.$t->name, $items.' · bill ৳'.number_format($o->total).' ('.$o->number.')', 'warning', '/pos');
+        // the table's waiters get a task to serve it
+        if ($t->waiters()->exists()) {
+            TableWaiterService::taskForCall(TableCall::create(['location_id' => $t->location_id, 'dining_table_id' => $t->id, 'pos_order_id' => $o->id, 'type' => 'ORDER', 'note' => $items]));
+        }
 
         return $o;
     }
@@ -139,6 +143,7 @@ class QrOrderService
         }
         $c = TableCall::create(['location_id' => $t->location_id, 'dining_table_id' => $t->id, 'type' => $type, 'note' => trim(mb_substr((string) $note, 0, 200)) ?: null]);
         Notifier::send(static::staffIds($t->location_id), TableCall::TYPES[$type][0].' Table '.$t->name.': '.TableCall::TYPES[$type][1], $c->note ?: $t->location->name, 'warning', '/table-calls');
+        TableWaiterService::taskForCall($c);
 
         return $c;
     }
@@ -159,6 +164,10 @@ class QrOrderService
             default => throw new BizException('Unknown action.'),
         };
 
+        if ($what === 'done') {
+            TableWaiterService::closeTasks($c->id, $u);
+        }
+
         return $c->fresh();
     }
 
@@ -177,5 +186,57 @@ class QrOrderService
             'orders' => $orders->map(fn ($o) => ['id' => $o->id, 'number' => $o->number, 'table' => $o->table?->name, 'branch' => $o->location?->name, 'total' => (float) $o->total,
                 'at' => $o->created_at->format('h:i A'), 'items' => $o->lines->map(fn ($l) => ['name' => $l->item->name, 'qty' => (float) $l->qty, 'kot' => $l->kot_status, 'note' => $l->note]), 'order' => $o])->values(),
         ];
+    }
+
+    /** bKash / Nagad set up in Company settings for the QR menu: [key => [label, number, qr url]]. */
+    public static function payOptions(): array
+    {
+        if (! (int) Features::setting('qr.pay_online', 0)) {
+            return [];
+        }
+        $out = [];
+        foreach (['BKASH' => ['bKash', 'qr.bkash'], 'NAGAD' => ['Nagad', 'qr.nagad']] as $k => [$label, $key]) {
+            $num = trim((string) Features::setting($key.'_number', ''));
+            $qr = \App\Support\Brand::fileUrl((string) Features::setting($key.'_qr', ''));
+            if ($num !== '' || $qr) {
+                $out[$k] = ['key' => $k, 'label' => $label, 'number' => $num, 'qr' => $qr];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The customer paid the open bill(s) of this phone by bKash / Nagad and sends the transaction ID.
+     * The bill stays OPEN: the cashier checks the TrxID in the merchant app and presses Pay (pre-filled).
+     */
+    public static function payClaim(DiningTable $t, array $orderIds, string $method, string $trx, ?string $phone): float
+    {
+        $opts = static::payOptions();
+        if (! isset($opts[$method])) {
+            throw new BizException('This payment method is not available. Please pay at the counter.');
+        }
+        $trx = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $trx));
+        if (strlen($trx) < 6 || strlen($trx) > 20) {
+            throw new BizException('Enter the transaction ID (TrxID) from the '.$opts[$method]['label'].' message.');
+        }
+        $orders = PosOrder::whereIn('id', $orderIds)->where('dining_table_id', $t->id)->where('status', 'OPEN')->get();
+        if ($orders->isEmpty()) {
+            throw new BizException('There is no open bill to pay.');
+        }
+        if (PosOrder::where('pay_claim_trx', $trx)->whereNotIn('id', $orders->pluck('id'))->exists()) {
+            throw new BizException('This transaction ID was already used.');
+        }
+        $phone = $phone ? preg_replace('/[^0-9+]/', '', $phone) : null;
+        $total = (float) $orders->sum('total');
+        foreach ($orders as $o) {
+            $o->update(['pay_claim_method' => $opts[$method]['label'], 'pay_claim_trx' => $trx, 'pay_claim_phone' => $phone, 'pay_claim_amount' => $o->total, 'pay_claim_at' => now()]);
+        }
+        $note = $opts[$method]['label'].' ৳'.number_format($total).' · TrxID '.$trx.($phone ? ' · from '.$phone : '').' · '.$orders->pluck('number')->implode(', ');
+        $c = TableCall::create(['location_id' => $t->location_id, 'dining_table_id' => $t->id, 'pos_order_id' => $orders->first()->id, 'type' => 'PAID', 'note' => $note]);
+        Notifier::send(static::staffIds($t->location_id), '📲 Paid by '.$opts[$method]['label'].' · Table '.$t->name, $note.' — check it, then close the bill in POS', 'warning', '/pos');
+        TableWaiterService::taskForCall($c);
+
+        return $total;
     }
 }

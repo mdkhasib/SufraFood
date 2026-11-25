@@ -14,7 +14,8 @@ class ApiException implements Exception {
 
 /// Thin JSON client for the Laravel API.
 class Api {
-  static String base = 'http://192.168.110.205:8090';
+  /// Production server; build with --dart-define=SERVER_URL=http://192.168.x.x:8090 for an office test server.
+  static String base = const String.fromEnvironment('SERVER_URL', defaultValue: 'https://erp.sufrabd.com');
   static String? token;
   static String lang = 'en';
   static String deviceId = '';
@@ -32,7 +33,12 @@ class Api {
   static String normalize(String s) {
     var v = s.trim().replaceAll(' ', '');
     if (v.isEmpty) return base;
-    if (!v.startsWith('http://') && !v.startsWith('https://')) v = 'http://$v';
+    if (!v.startsWith('http://') && !v.startsWith('https://')) {
+      // a domain (erp.sufrabd.com) is https; an office IP / localhost is plain http
+      final host = v.split('/').first.split(':').first;
+      final local = host == 'localhost' || RegExp(r'^[0-9.]+$').hasMatch(host);
+      v = local ? 'http://$v' : 'https://$v';
+    }
     while (v.endsWith('/')) {
       v = v.substring(0, v.length - 1);
     }

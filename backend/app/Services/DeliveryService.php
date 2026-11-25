@@ -118,8 +118,8 @@ class DeliveryService
         if (! $o->isDelivery()) {
             throw new BizException('This is not a home delivery order.');
         }
-        if (! Delivery::canManage($by, $o->location_id)) {
-            throw new BizException('Only the branch manager can give deliveries to riders.');
+        if (! Delivery::canAssign($by, $o->location_id)) {
+            throw new BizException('Only the branch manager or the cashier can give deliveries to riders.');
         }
         if (! in_array($o->delivery_status, ['COOKING', 'READY'])) {
             throw new BizException('This delivery is already '.strtolower(str_replace('_', ' ', $o->delivery_status)).'.');

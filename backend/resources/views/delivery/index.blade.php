@@ -27,7 +27,7 @@
 
 <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
 @forelse($orders as $o)
-  @php($manage = \App\Support\Delivery::canManage($me, $o->location_id))
+  @php($manage = \App\Support\Delivery::canAssign($me, $o->location_id))
   @php($cashOk = \App\Support\Delivery::canReceiveCash($me, $o->location_id))
   @php($idx = array_search($o->delivery_status, array_keys($steps)))
   <div class="card p-4 {{ $o->delivery_status === 'READY' && !$o->rider_id ? 'border-2 border-red-400' : ($o->delivery_status === 'DELIVERED' && $o->status === 'OPEN' ? 'border-2 border-amber-400' : '') }}">

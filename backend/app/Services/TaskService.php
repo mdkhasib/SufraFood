@@ -170,6 +170,9 @@ class TaskService
             throw new BizException('Task already started.');
         }
         $t->update(['status' => 'STARTED', 'started_at' => now()]);
+        if ($t->linked_type === 'TableCall') { // waiter: “Start” = I am coming to the table
+            TableWaiterService::started($t, $u);
+        }
         if ($t->notify_on_start && $t->assigned_by && $t->assigned_by !== $u->id) {
             Notifier::send($t->assigned_by, 'Task started: '.$t->title, $u->name.' started at '.now()->format('h:i A'), 'task', '/tasks');
         }
@@ -203,6 +206,9 @@ class TaskService
         } else {
             $fields += ['status' => 'DONE', 'submitted_at' => now(), 'completed_at' => now()];
             $t->update($fields);
+            if ($t->linked_type === 'TableCall') {
+                TableWaiterService::finished($t, $u);
+            }
             if ($t->notify_on_done && $t->assigned_by && $t->assigned_by !== $u->id) {
                 $onTime = $t->completed_at->lte($t->due_at);
                 Notifier::send($t->assigned_by, 'Task finished: '.$t->title, $u->name.' finished at '.now()->format('h:i A').' · '.($onTime ? 'on time' : static::lateText($t)), $onTime ? 'success' : 'warning', '/tasks');

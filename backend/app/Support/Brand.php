@@ -19,6 +19,17 @@ class Brand
         return $p !== '' && Storage::disk('public')->exists($p) ? $p : null;
     }
 
+    /** Absolute URL of any uploaded setting picture (e.g. the bKash QR), or null. */
+    public static function fileUrl(?string $path, ?string $base = null): ?string
+    {
+        $p = (string) $path;
+        if ($p === '' || ! Storage::disk('public')->exists($p)) {
+            return null;
+        }
+
+        return rtrim($base ?? request()->getSchemeAndHttpHost(), '/').'/storage/'.$p.'?v='.substr(md5($p), 0, 6);
+    }
+
     /** Absolute URL of the uploaded logo, or null when none is set. */
     public static function logoUrl(?string $base = null): ?string
     {

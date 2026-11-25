@@ -1,5 +1,6 @@
 # Built app files (big binaries; build them again or attach them to a GitHub release)
 *.apk
+!/deploy/apk/sufra-groupops.apk
 *.aab
 /backend/public/downloads/
 

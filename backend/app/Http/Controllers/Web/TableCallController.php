@@ -67,4 +67,28 @@ class TableCallController extends Controller
 
         return back()->with('ok', 'New QR code for table '.$table->name.'. Print it and replace the old sticker.');
     }
+
+    /** Branch manager: which waiter looks after which table (one waiter many tables, many waiters one table). */
+    public function waiters(Request $r)
+    {
+        $u = $r->user();
+        $branches = Location::where('type', 'BRANCH')->where('active', true)->when(! $u->isGroupWide(), fn ($q) => $q->where('id', $u->location_id))->orderBy('name')->get();
+        $loc = $r->integer('location') ?: $branches->first()?->id;
+        abort_unless($branches->contains('id', $loc), 403);
+        $tables = DiningTable::with('waiters')->where('location_id', $loc)->orderBy('id')->get();
+        $staff = \App\Services\TableWaiterService::candidates($loc);
+
+        return view('qr.waiters', ['branches' => $branches, 'branch' => $branches->firstWhere('id', $loc), 'tables' => $tables, 'staff' => $staff]);
+    }
+
+    public function saveWaiters(Request $r)
+    {
+        $u = $r->user();
+        $loc = $r->integer('location');
+        abort_unless(Location::where('id', $loc)->where('type', 'BRANCH')->exists() && ($u->isGroupWide() || $u->location_id === $loc), 403);
+        $n = \App\Services\TableWaiterService::save($loc, (array) $r->input('w', []), $u);
+        Audit::log('tables.waiters', Location::find($loc), null, ['changed_tables' => $n]);
+
+        return redirect()->route('tables.waiters', ['location' => $loc])->with('ok', $n ? $n.' table(s) updated. Their waiters now get the table calls as tasks.' : 'No changes.');
+    }
 }

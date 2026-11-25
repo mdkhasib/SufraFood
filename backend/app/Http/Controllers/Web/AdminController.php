@@ -126,4 +126,18 @@ class AdminController extends Controller
 
         return view('super.audit', compact('logs'));
     }
+
+    /** Sign-in IDs of the demo staff (moved off the public login page). */
+    public function demo(Request $r)
+    {
+        $key = ['SA-0001' => 'Super Admin', 'E-1001' => 'MD / Owner', 'E-1002' => 'GM / Company Admin', 'E-1020' => 'HR Manager', 'E-1010' => 'Accounts Manager', 'E-1030' => 'Purchase Manager', 'E-1031' => 'Buyer', 'E-1040' => 'Warehouse Mgr', 'E-1050' => 'CK Head Chef', 'E-1060' => 'Driver', 'E-1070' => 'Catering Mgr', 'E-2001' => 'Branch Mgr Gulshan', 'E-2004' => 'Team Lead (proxy)', 'E-2008' => 'Worker', 'E-2011' => 'Cashier (POS)'];
+        $users = \App\Models\User::with('role', 'location')->whereIn('employee_code', array_keys($key))->get();
+        $q = trim((string) $r->input('q'));
+        $list = \App\Models\User::with('role', 'location')
+            ->when($q !== '', fn ($w) => $w->where(fn ($w) => $w->where('name', 'like', "%$q%")->orWhere('employee_code', 'like', "%$q%")->orWhere('phone', 'like', "%$q%")
+                ->orWhereHas('role', fn ($x) => $x->where('name', 'like', "%$q%"))->orWhereHas('location', fn ($x) => $x->where('name', 'like', "%$q%"))))
+            ->orderBy('location_id')->orderBy('employee_code')->get();
+
+        return view('super.demo', compact('key', 'users', 'list'));
+    }
 }

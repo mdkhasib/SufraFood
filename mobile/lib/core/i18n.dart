@@ -29,7 +29,7 @@ const Map<String, String> _bn = {
   'Find a person or team': 'ব্যক্তি বা টিম খুঁজুন', 'Show only their team': 'শুধু তাদের টিম দেখুন', 'Choose a person or a team': 'একজন ব্যক্তি বা টিম বাছাই করুন',
   'Write a title': 'শিরোনাম লিখুন', 'Lines show who reports to whom. Tap a person to give them a task.': 'কে কার অধীনে তা দেখানো হয়েছে। কাজ দিতে নামের উপর চাপুন।',
   'Test connection': 'সংযোগ পরীক্ষা', 'Connected to': 'সংযুক্ত:', 'This address is not a GroupOps server.': 'এই ঠিকানাটি GroupOps সার্ভার নয়।',
-  'Example: http://192.168.110.205:8090 (office Wi-Fi) or https://ops.sufrafood.com': 'উদাহরণ: http://192.168.110.205:8090 (অফিস Wi-Fi) অথবা https://ops.sufrafood.com',
+  'Example: https://erp.sufrabd.com (or http://192.168.x.x:8090 on office Wi-Fi)': 'উদাহরণ: https://erp.sufrabd.com (অথবা অফিস Wi-Fi-তে http://192.168.x.x:8090)',
   'Ask your manager for the address, or open the web login page → “How to set up the app”.': 'ঠিকানা ম্যানেজারের কাছে জেনে নিন, অথবা ওয়েব লগইন পেজে “How to set up the app” দেখুন।',
   'Good morning': 'শুভ সকাল', 'Hello': 'হ্যালো', 'pending approvals': 'অনুমোদন বাকি', 'Sales today': 'আজকের বিক্রি',
   // home delivery

@@ -120,30 +120,68 @@ class PosController extends Controller
         return view('pos.receipt', ['o' => $order->load('lines.item', 'payments.paymentMethod', 'location', 'cashier', 'table'), 'tendered' => (float) $r->query('tendered', 0)]);
     }
 
+    /** Branch-wise kitchen display: branch staff see their own kitchen; head-office users pick a branch. */
     public function kds(Request $r)
     {
-        return view('pos.kds');
+        $branches = $r->user()->isGroupWide() ? Location::where('type', 'BRANCH')->where('active', true)->orderBy('name')->get(['id', 'name']) : collect();
+        $loc = $this->kdsLocation($r);
+
+        return view('pos.kds', ['branches' => $branches, 'loc' => $loc ? Location::find($loc) : null]);
+    }
+
+    /** The kitchen this person may look at: their own branch, or (head office) the chosen one. */
+    private function kdsLocation(Request $r): ?int
+    {
+        $u = $r->user();
+        if (! $u->isGroupWide()) {
+            return $u->location_id;
+        }
+        $want = (int) $r->input('location', session('kds_location', 0));
+        $ok = $want && Location::where('id', $want)->where('type', 'BRANCH')->exists();
+        $loc = $ok ? $want : (Location::where('type', 'BRANCH')->where('active', true)->orderBy('name')->value('id') ?: $u->location_id);
+        session(['kds_location' => $loc]);
+
+        return $loc;
     }
 
     public function kdsFeed(Request $r)
     {
-        $loc = $r->user()->location_id;
+        $loc = $this->kdsLocation($r);
 
         return PosOrder::with(['lines' => fn ($q) => $q->where('kot_status', 'NEW')->with('item'), 'table', 'rider'])->where('location_id', $loc)->whereIn('status', ['OPEN', 'PAID'])
-            ->where('created_at', '>=', now()->subHours(6))->whereHas('lines', fn ($q) => $q->where('kot_status', 'NEW'))->orderBy('id')->get()
+            ->where('created_at', '>=', now()->subHours(12))->whereHas('lines', fn ($q) => $q->where('kot_status', 'NEW'))->orderBy('id')->get()
             ->map(fn ($o) => ['id' => $o->id, 'number' => $o->number, 'type' => $o->order_type, 'table' => $o->table?->name,
                 'delivery' => $o->delivery_status ? trim(($o->customer_name ?: $o->customer_phone).' · '.($o->delivery_area ?: '')) : null, 'rider' => $o->rider?->name, 'online' => $o->source === 'ONLINE', 'qr' => $o->source === 'QR', 'age' => (int) $o->created_at->diffInMinutes(now()), 'at' => $o->created_at->format('h:i A'),
-                'lines' => $o->lines->map(fn ($l) => ['id' => $l->id, 'name' => $l->item->name, 'name_bn' => $l->item->name_bn, 'qty' => (float) $l->qty, 'note' => $l->note])]);
+                'lines' => $o->lines->map(fn ($l) => ['id' => $l->id, 'name' => $l->item?->name, 'name_bn' => $l->item?->name_bn, 'qty' => (float) $l->qty, 'note' => $l->note])->values()])->values();
     }
 
-    public function ready(PosOrderLine $line)
+    public function ready(Request $r, PosOrderLine $line)
     {
+        abort_unless($this->canKitchen($r, $line->order), 403);
         $line->update(['kot_status' => 'READY']);
         \App\Services\DeliveryService::kitchenReady($line->order);
+        \App\Services\TableWaiterService::foodReady($line->order);
 
         return ['ok' => true];
     }
 
+    /** "All ready": every waiting item of one order. */
+    public function orderReady(Request $r, PosOrder $order)
+    {
+        abort_unless($this->canKitchen($r, $order), 403);
+        $order->lines()->where('kot_status', 'NEW')->update(['kot_status' => 'READY']);
+        \App\Services\DeliveryService::kitchenReady($order->fresh());
+        \App\Services\TableWaiterService::foodReady($order);
+
+        return ['ok' => true];
+    }
+
+    private function canKitchen(Request $r, PosOrder $o): bool
+    {
+        $u = $r->user();
+
+        return $u->isGroupWide() || (int) $u->location_id === (int) $o->location_id;
+    }
     public function summary(Request $r)
     {
         $u = $r->user();

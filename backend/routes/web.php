@@ -31,6 +31,7 @@ Route::get('/t/{token}', [QrMenuController::class, 'table'])->name('qr.table')->
 Route::get('/t/{token}/status', [QrMenuController::class, 'status'])->name('qr.status')->middleware('throttle:60,1');
 Route::post('/t/{token}/order', [QrMenuController::class, 'order'])->name('qr.order')->middleware('throttle:10,1');
 Route::post('/t/{token}/call', [QrMenuController::class, 'call'])->name('qr.call')->middleware('throttle:12,1');
+Route::post('/t/{token}/pay', [QrMenuController::class, 'pay'])->name('qr.pay')->middleware('throttle:10,1');
 Route::get('/b/{token}', [QrMenuController::class, 'branch'])->name('qr.branch')->where('token', '[a-z0-9]{6,32}');
 
 Route::middleware('auth')->group(function () {
@@ -52,6 +53,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/admins', [AdminController::class, 'admins'])->name('admins');
         Route::post('/admins/{user}', [AdminController::class, 'toggleAdmin'])->name('admins.toggle');
         Route::get('/audit', [AdminController::class, 'audit'])->name('audit');
+        Route::get('/demo-accounts', [AdminController::class, 'demo'])->name('demo');
     });
 
     // Company settings: Super Admin, or Company Admins when the Super Admin allows it (checked in the controller)
@@ -177,6 +179,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/kds', [PosController::class, 'kds'])->name('pos.kds')->middleware('perm:pos.kds');
     Route::get('/kds/feed', [PosController::class, 'kdsFeed'])->name('pos.kds.feed')->middleware('perm:pos.kds');
     Route::post('/kds/{line}/ready', [PosController::class, 'ready'])->name('pos.kds.ready')->middleware('perm:pos.kds');
+    Route::post('/kds/order/{order}/ready', [PosController::class, 'orderReady'])->name('pos.kds.order_ready')->middleware('perm:pos.kds');
     // home delivery (branch manager, cashier, online team; riders work from their tasks)
     Route::get('/home-delivery', [DeliveryController::class, 'index'])->name('delivery.index');
     Route::get('/home-delivery/new', [DeliveryController::class, 'create'])->name('delivery.create');
@@ -188,6 +191,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/table-calls/feed', [TableCallController::class, 'feed'])->name('calls.feed')->middleware('perm:pos.table_calls');
     Route::post('/table-calls/{call}/{what}', [TableCallController::class, 'answer'])->name('calls.answer')->where('what', 'coming|done')->middleware('perm:pos.table_calls');
     Route::get('/qr-codes', [TableCallController::class, 'codes'])->name('qr.codes')->middleware('perm:pos.qr_codes');
+    Route::get('/table-waiters', [TableCallController::class, 'waiters'])->name('tables.waiters')->middleware('perm:pos.qr_codes');
+    Route::post('/table-waiters', [TableCallController::class, 'saveWaiters'])->name('tables.waiters.save')->middleware('perm:pos.qr_codes');
     Route::post('/qr-codes/{table}/new', [TableCallController::class, 'regenerate'])->name('qr.regenerate')->middleware('perm:pos.qr_codes');
     Route::get('/pos/summary', [PosController::class, 'summary'])->name('pos.summary')->middleware('perm:pos.void|reports.management|acc.view');
 

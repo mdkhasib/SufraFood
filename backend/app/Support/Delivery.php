@@ -40,6 +40,13 @@ class Delivery
         return false;
     }
 
+    /** Who can give a delivery to a rider: the branch manager, and the branch cashier (unless switched off in Company settings). */
+    public static function canAssign(User $u, int $locationId): bool
+    {
+        return static::canManage($u, $locationId)
+            || (static::on() && (int) Features::setting('delivery.cashier_assigns', 1) && $u->hasPerm('pos.sell') && $u->location_id === $locationId);
+    }
+
     /** Cash from a rider can be taken by the manager or the branch cashier. */
     public static function canReceiveCash(User $u, int $locationId): bool
     {

@@ -33,15 +33,6 @@
       <input type="password" name="password" class="w-full border rounded-lg px-3 py-2" required></div>
     <button class="w-full rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2.5">Sign in</button>
   </form>
-  <details class="mt-4 text-xs text-slate-500 bg-white/70 rounded-xl border p-3">
-    <summary class="cursor-pointer font-semibold">Demo accounts (password 123456) — sign in with the ID or the mobile number</summary>
-    @php($demo = \App\Models\User::whereIn('employee_code', ['SA-0001','E-1001','E-1002','E-1020','E-1010','E-1030','E-1031','E-1040','E-1050','E-1060','E-1070','E-2001','E-2004','E-2008','E-2011'])->pluck('phone', 'employee_code'))
-    <table class="mt-2 w-full">
-      @foreach(['SA-0001'=>'Super Admin','E-1001'=>'MD / Owner','E-1002'=>'GM / Company Admin','E-1020'=>'HR Manager','E-1010'=>'Accounts Manager','E-1030'=>'Purchase Manager','E-1031'=>'Buyer','E-1040'=>'Warehouse Mgr','E-1050'=>'CK Head Chef','E-1060'=>'Driver','E-1070'=>'Catering Mgr','E-2001'=>'Branch Mgr Gulshan','E-2004'=>'Team Lead (proxy)','E-2008'=>'Worker','E-2011'=>'Cashier (POS)'] as $c=>$r)
-        <tr><td class="py-0.5"><b class="text-slate-700">{{ $c }}</b></td><td class="text-slate-500">{{ $demo[$c] ?? '' }}</td><td>{{ $r }}</td></tr>
-      @endforeach
-    </table>
-  </details>
   <footer class="mt-5 text-center text-xs text-slate-500 space-y-2">
     @if(\App\Support\Brand::apkExists())
       <a href="{{ route('app.guide', ['download' => 1]) }}" class="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-700">📱 Download Android app <span class="text-slate-400 font-normal text-xs">{{ \App\Support\Brand::apkSizeMb() }} MB</span></a>

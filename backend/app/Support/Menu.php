@@ -50,6 +50,7 @@ class Menu
                 ['POS orders', 'pos.orders', 'list', $p('pos.sell', 'pos.void')],
                 ['Table calls', 'calls.index', 'bell', \App\Services\QrOrderService::on() && $p('pos.table_calls')],
                 ['Table QR codes', 'qr.codes', 'grid', \App\Services\QrOrderService::on() && $p('pos.qr_codes')],
+                ['Table waiters', 'tables.waiters', 'users', \App\Services\QrOrderService::on() && $p('pos.qr_codes')],
                 ['Home delivery', 'delivery.index', 'truck', \App\Support\Delivery::canView($u)],
                 ['Delivery report', 'delivery.report', 'chart', \App\Support\Delivery::on() && $p('delivery.manage', 'payroll.manage', 'delivery.order')],
                 ['Day summary', 'pos.summary', 'chart', $p('pos.void', 'reports.management', 'acc.view') && $u->featureOn('pos.core')],
@@ -93,6 +94,7 @@ class Menu
                 ['Company admins', 'super.admins', 'shield', $u->is_super_admin],
                 ['Payment methods', ['crud.index', 'payment_methods'], 'money', $u->is_super_admin],
                 ['Audit log', 'super.audit', 'eye', $u->is_super_admin],
+                ['Demo accounts', 'super.demo', 'users', $u->is_super_admin],
             ],
         ];
         $out = [];

@@ -135,8 +135,8 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 labelText: t('Server address'),
-                hintText: 'http://192.168.110.205:8090',
-                helperText: t('Example: http://192.168.110.205:8090 (office Wi-Fi) or https://ops.sufrafood.com'),
+                hintText: 'https://erp.sufrabd.com',
+                helperText: t('Example: https://erp.sufrabd.com (or http://192.168.x.x:8090 on office Wi-Fi)'),
                 helperMaxLines: 2,
               ),
               onChanged: (_) => setState(() => testResult = null),

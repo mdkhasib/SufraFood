@@ -55,7 +55,7 @@
       </template>
     </div>
     <div class="card p-3 mt-4" x-show="serverOpen.length || myOpen().length"><div class="font-semibold text-sm mb-2">Open orders (sent to kitchen, not paid)</div>
-      <template x-for="o in serverOpen" :key="'s'+o.id"><button class="btn btn-light btn-sm mr-1 mb-1" @click="load(o)" x-text="o.number+' · '+(o.table ? o.table.name : o.order_type)+' · ৳'+Math.round(o.total)"></button></template>
+      <template x-for="o in serverOpen" :key="'s'+o.id"><button class="btn btn-light btn-sm mr-1 mb-1" @click="load(o)" x-text="(o.pay_claim_method ? '📲 ' : '')+o.number+' · '+(o.table ? o.table.name : o.order_type)+' · ৳'+Math.round(o.total)+(o.pay_claim_method ? ' · paid '+o.pay_claim_method : '')"></button></template>
       <template x-for="o in myOpen()" :key="o.lid"><button class="btn btn-sm mr-1 mb-1 bg-amber-100 text-amber-900" @click="loadLocal(o)" x-text="'📴 '+o.ref+' · '+(o.table_name || o.order_type)+' · ৳'+Math.round(o.total)"></button></template>
     </div>
   </div>
@@ -159,7 +159,10 @@ function pos(){ const P = window.PosOffline; const firstPm = '{{ $methods->first
   total(){ return Math.round((this.net()+this.sc()+this.vat())*100)/100 },
   change(){ return this.pays.reduce((s,p)=>s+(+p.amount||0),0)-this.total() },
   load(o){ this.reset(); this.orderId=o.id; this.orderNo=o.number; this.type=o.order_type; this.discount=+o.discount;
-    this.lines=o.lines.map(l=>({item_id:l.item_id,name:l.item.name,name_bn:l.item.name_bn,price:+l.price,qty:+l.qty})); this.pays[0].amount=+o.total; this._server=o },
+    this.lines=o.lines.map(l=>({item_id:l.item_id,name:l.item.name,name_bn:l.item.name_bn,price:+l.price,qty:+l.qty})); this.pays[0].amount=+o.total; this._server=o;
+    // the customer already paid from the QR menu (bKash / Nagad): pre-fill it; the cashier checks the TrxID in the merchant app
+    if(o.pay_claim_method){ const m=this.methods.find(x=>x.name.toLowerCase().includes(o.pay_claim_method.toLowerCase())); if(m) this.pays[0].payment_method_id=String(m.id); this.pays[0].reference=o.pay_claim_trx||'';
+      this.msg='📲 Customer paid by '+o.pay_claim_method+' ৳'+Math.round(+o.pay_claim_amount)+' · TrxID '+o.pay_claim_trx+' — check it in the '+o.pay_claim_method+' app, then press Pay'; this.err=false } },
   loadLocal(o){ this.reset(); this.orderId=o.lid; this.orderNo=o.ref; this.type=o.order_type; this.table=o.dining_table_id||''; this.phone=o.customer_phone||''; this.discount=o.discount;
     this.lines=o.lines.map(l=>({...l})); this.pays[0].amount=o.total },
   reset(){ this.lines=[]; this.orderId=null; this.orderNo=null; this._server=null; this.discount=0; this.table=''; this.phone=''; this.cust={customer_name:'',delivery_address:'',delivery_area:'',delivery_note:''}; this.pays=[{payment_method_id:firstPm,amount:0,reference:''}] },

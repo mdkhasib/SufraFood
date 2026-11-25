@@ -139,6 +139,19 @@ jobs:
           curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 120 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T build/.htaccess "${base}.htaccess"
           echo "uploaded"
 
+      # the Android app (deploy/apk/sufra-groupops.apk, built on the office PC) → public/downloads, where the
+      # web footer's "Download Android app" button finds it. Sent only when it differs from the copy online.
+      - name: Upload the Android app (when it changed)
+        run: |
+          apk=deploy/apk/sufra-groupops.apk
+          if [ ! -f "$apk" ]; then echo "no APK in the repository"; exit 0; fi
+          url="ftp://$FTP_HOST:$FTP_PORT_CLEAN${FTP_DIR_CLEAN}public/downloads/sufra-groupops.apk"
+          here=$(stat -c %s "$apk")
+          there=$(curl -sS --ftp-pasv --max-time 60 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -I "$url" 2>/dev/null | tr -d '\r' | sed -nE 's/^Content-Length: *([0-9]+).*/\1/ip' | head -1)
+          if [ "$here" = "$there" ]; then echo "APK online is the same ($here bytes)"; exit 0; fi
+          curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 900 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T "$apk" "$url"
+          echo "::notice title=Android app published::$(( here / 1048576 )) MB → $SITE_URL/app?download=1"
+
       - name: Unpack on the server
         run: |
           codes=""

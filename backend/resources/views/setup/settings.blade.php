@@ -25,12 +25,12 @@
               <input type="hidden" name="{{ $name }}__present" value="1">
               <label class="flex items-center gap-2"><input type="checkbox" name="{{ $name }}" value="1" @checked((int)$val)> {{ __('Enabled') }}</label>
             @elseif($def[1]==='image')
-              @php($logo = \App\Support\Brand::logoUrl())
+              @php($logo = $k === 'company.logo' ? \App\Support\Brand::logoUrl() : \App\Support\Brand::fileUrl($val))
               <div class="flex items-center gap-3">
-                <div class="h-16 w-16 shrink-0 rounded-xl border bg-slate-50 grid place-items-center overflow-hidden">@if($logo)<img src="{{ $logo }}" class="max-h-16 max-w-16 object-contain">@else<span class="font-bold text-brand-700">{{ \App\Support\Brand::initials() }}</span>@endif</div>
+                <div class="h-16 w-16 shrink-0 rounded-xl border bg-slate-50 grid place-items-center overflow-hidden">@if($logo)<img src="{{ $logo }}" class="max-h-16 max-w-16 object-contain">@elseif($k === 'company.logo')<span class="font-bold text-brand-700">{{ \App\Support\Brand::initials() }}</span>@else<span class="text-slate-300 text-xs">none</span>@endif</div>
                 <div class="text-xs space-y-1"><input type="file" name="{{ $name }}" accept="image/png,image/jpeg,image/webp" class="text-sm">
-                  <div class="text-slate-400">{{ __('Square or wide logo, max 2 MB. Bills print it in black & white.') }}</div>
-                  @if($logo)<label class="flex items-center gap-1 text-red-600"><input type="checkbox" name="{{ $name }}__remove" value="1"> {{ __('Remove logo') }}</label>@endif</div>
+                  <div class="text-slate-400">{{ $k === 'company.logo' ? __('Square or wide logo, max 2 MB. Bills print it in black & white.') : __('PNG / JPG, max 2 MB.') }}</div>
+                  @if($logo)<label class="flex items-center gap-1 text-red-600"><input type="checkbox" name="{{ $name }}__remove" value="1"> {{ __('Remove') }}</label>@endif</div>
               </div>
             @elseif($def[1]==='select')
               <select name="{{ $name }}" class="inp">@foreach($def[2] as $o=>$l)<option value="{{ $o }}" @selected($val==$o)>{{ __($l) }}</option>@endforeach</select>

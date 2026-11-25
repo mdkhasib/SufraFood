@@ -29,7 +29,7 @@ class QrMenuController extends Controller
             'order' => (bool) (int) Features::setting('qr.allow_order', 1), 'calls' => (bool) (int) Features::setting('qr.allow_calls', 1),
             'phone' => (bool) (int) Features::setting('qr.ask_phone', 0), 'max' => (int) Features::setting('qr.max_qty', 30),
             'vat' => (float) Features::setting('pos.vat_percent', 5), 'sc' => (float) Features::setting('pos.service_charge_percent', 0),
-            'welcome' => Features::setting('qr.welcome'), 'types' => collect(TableCall::TYPES)->map(fn ($v, $k) => ['key' => $k, 'icon' => $v[0], 'label' => $v[1]])->values(),
+            'welcome' => Features::setting('qr.welcome'), 'pay' => array_values(QrOrderService::payOptions()), 'pay_note' => Features::setting('qr.pay_note'), 'types' => collect(TableCall::TYPES)->map(fn ($v, $k) => ['key' => $k, 'icon' => $v[0], 'label' => $v[1]])->values(),
         ];
 
         return view('qr.menu', ['t' => $t, 'menu' => $this->menu(), 'cfg' => $cfg]);
@@ -66,6 +66,15 @@ class QrMenuController extends Controller
         return ['message' => 'We are on our way'] + $this->statusData($r, $t);
     }
 
+    /** “I paid by bKash / Nagad”: the transaction ID goes to the cashier, who closes the bill. */
+    public function pay(Request $r, string $token)
+    {
+        $t = QrOrderService::table($token);
+        $total = QrOrderService::payClaim($t, (array) $r->session()->get('qr.orders.'.$t->id, []), (string) $r->input('method'), (string) $r->input('trx'), $r->input('phone'));
+
+        return ['message' => 'Payment of ৳'.number_format($total).' sent. The cashier will confirm it.'] + $this->statusData($r, $t);
+    }
+
     public function status(Request $r, string $token)
     {
         return $this->statusData($r, QrOrderService::table($token));
@@ -82,6 +91,8 @@ class QrMenuController extends Controller
         return [
             'bill' => $orders->where('status', 'OPEN')->sum('total'),
             'paid' => $orders->isNotEmpty() && $orders->every(fn ($o) => $o->status === 'PAID'),
+            'claim' => ($c = $orders->where('status', 'OPEN')->whereNotNull('pay_claim_trx')->first()) ? ['method' => $c->pay_claim_method, 'trx' => $c->pay_claim_trx] : null,
+            'unclaimed' => (float) $orders->where('status', 'OPEN')->whereNull('pay_claim_trx')->sum('total'),
             'items' => $orders->flatMap(fn ($o) => $o->lines->map(fn ($l) => ['name' => $l->item->name, 'name_bn' => $l->item->name_bn, 'qty' => (float) $l->qty, 'state' => $l->kot_status]))->values(),
             'calls' => $calls->map(fn ($c) => ['label' => $c->label(), 'status' => $c->status, 'by' => $c->answeredBy?->name, 'at' => $c->created_at->format('h:i A')])->values(),
         ];
