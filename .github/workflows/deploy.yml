@@ -83,7 +83,7 @@ jobs:
           case "$dir" in /*) ;; *) dir="/$dir";; esac; case "$dir" in */) ;; *) dir="$dir/";; esac
           # the website address: APP_URL, else the domain in a Hostinger FTP username (u123456789.your-domain.com)
           url=$(printf '%s' "$RAW_URL" | tr -d '[:space:]' | sed -E 's#/+$##')
-          if [ -z "$url" ]; then d=$(printf '%s' "$user" | sed -nE 's/^u[0-9]+\.(.+)$/\1/p'); [ -n "$d" ] && url="https://$d"; fi
+          if [ -z "$url" ]; then d=$(printf '%s' "$user" | sed -nE 's/^u[0-9]+\.([a-z0-9-]+(\.[a-z0-9-]+)+)$/\1/p'); [ -n "$d" ] && url="https://$d"; fi
           echo "::add-mask::$user"; echo "::add-mask::$pass"
           { echo "FTP_HOST=$host"; echo "FTP_PORT_CLEAN=$port"; echo "FTP_USER_CLEAN=$user"; echo "FTP_PASS_CLEAN=$pass"; echo "FTP_DIR_CLEAN=$dir"; echo "SITE_URL=$url"; } >> "$GITHUB_ENV"
           if ! listing=$(curl -sS --max-time 30 --ftp-pasv --user "$user:$pass" "ftp://$host:$port$dir" --list-only 2>&1); then

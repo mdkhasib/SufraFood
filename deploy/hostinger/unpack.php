@@ -103,5 +103,6 @@ try {
 }
 
 @unlink($zipPath);
+foreach (glob($root.'/_release-*.zip') ?: [] as $old) @unlink($old); // zips left by earlier failed deploys
 @unlink(__FILE__);
 echo json_encode($out, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
