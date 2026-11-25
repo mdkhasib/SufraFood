@@ -10,7 +10,7 @@ What is inside the zip:
 | `app/ config/ public/ resources/ routes/ vendor/ …` | the web panel + API (Laravel) |
 | `.htaccess` | sends every visit into `public/`, forces HTTPS, hides `.env` |
 | `.env` | settings — **you fill in the database and your domain** (step 4) |
-| `database/sufra-groupops-database.sql` | the database with the demo company (import it in step 3) |
+| `database/sufra-groupops-database.sql` | the database with the demo company (import it in step 3; also in the repository at `backend/database/`) |
 | `public/downloads/sufra-groupops.apk` | the Android app (the "Download Android app" button) |
 
 ---
@@ -100,3 +100,32 @@ SSH: `php artisan migrate --force` (hPanel → Advanced → SSH Access), or ask 
 | **Photos / logo don't show** | `UPLOADS_IN_PUBLIC=true` must be in `.env`; the folder `public/storage` must exist |
 | **Reminders never arrive** | the cron job of step 6 is missing or has the wrong path |
 | **Phone app can't connect** | in the app use `https://your-domain.com` (no `/api`, no port) |
+
+---
+
+## Automatic deploy from GitHub (instead of uploading the zip)
+
+Every push to `main` on GitHub uploads the web panel into `public_html` by FTP
+(workflow: `.github/workflows/deploy.yml`). The first upload takes a while (≈7,000 files);
+after that only changed files are sent. Your uploaded logo/photos (`public/storage`) and the APK
+(`public/downloads`) on the server are never deleted.
+
+1. hPanel → **Files → FTP Accounts**: note the FTP host (e.g. `ftp.your-domain.com` or an IP), username and password.
+2. GitHub → your repository → **Settings → Secrets and variables → Actions → New repository secret**, add:
+
+   | Secret | Value |
+   |---|---|
+   | `FTP_SERVER` | FTP host |
+   | `FTP_USERNAME` | FTP user (e.g. `u123456789.your-domain.com`) |
+   | `FTP_PASSWORD` | FTP password |
+   | `FTP_SERVER_DIR` | *(optional)* website folder as the FTP login sees it — default `/public_html/` |
+
+3. Database + `.env`, either:
+   * **Secrets (recommended):** also add `APP_KEY` (any `base64:…` key — run `php artisan key:generate --show` on your PC),
+     `APP_URL` (`https://your-domain.com`), `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Each deploy then writes `.env` for you.
+   * **or by hand:** create `public_html/.env` once in File Manager from `deploy/hostinger/env.hostinger` in the repository.
+4. Import the demo database once: phpMyAdmin → Import → `backend/database/sufra-groupops-database.sql` from the repository.
+5. *(optional)* Database updates after each deploy: add `SSH_HOST`, `SSH_USERNAME`, `SSH_PASSWORD`, `SSH_PORT` (`65002`)
+   and `SSH_APP_DIR` (e.g. `domains/your-domain.com/public_html`) from hPanel → Advanced → SSH Access.
+   Without them, new database changes need `php artisan migrate --force` once by SSH.
+6. GitHub → **Actions** → *Deploy to Hostinger* → **Run workflow** (or just push to `main`).

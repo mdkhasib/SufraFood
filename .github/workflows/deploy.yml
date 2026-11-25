@@ -1,31 +1,93 @@
-name: Deploy to hosting
+name: Deploy to Hostinger
+
+# Every push to main uploads the web panel (backend/) into Hostinger's public_html by FTP.
+# Only changed files are sent after the first upload. Your .env (unless built from secrets),
+# uploaded photos/logo (public/storage) and the APK (public/downloads) on the server are never touched.
+#
+# GitHub → Settings → Secrets and variables → Actions → New repository secret:
+#   required  FTP_SERVER, FTP_USERNAME, FTP_PASSWORD        (hPanel → Files → FTP Accounts)
+#   optional  FTP_SERVER_DIR   default /public_html/  (folder of the website as the FTP login sees it)
+#             FTP_PORT         default 21
+#   optional, to write .env on every deploy:
+#             APP_KEY, APP_URL, DB_DATABASE, DB_USERNAME, DB_PASSWORD   (and DB_HOST, default localhost)
+#   optional, to update the database after each deploy (hPanel → Advanced → SSH Access):
+#             SSH_HOST, SSH_USERNAME, SSH_PASSWORD, SSH_PORT (65002), SSH_APP_DIR (e.g. domains/your-domain.com/public_html)
+
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HAS_FTP: ${{ secrets.FTP_SERVER != '' }}
+      HAS_SSH: ${{ secrets.SSH_HOST != '' }}
     steps:
       - uses: actions/checkout@v4
 
-      # For CakePHP / Laravel: install PHP packages here, since the server can't
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-      - run: composer install --no-dev --optimize-autoloader
+          extensions: mbstring, intl, gd, zip, pdo_mysql, fileinfo, bcmath
+          tools: composer:v2
+          coverage: none
 
-      - name: Upload via FTP
+      - name: Install PHP packages (production, no dev tools)
+        working-directory: backend
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
+
+      - name: Build the public_html folder
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: php deploy/ci-build.php build
+
+      - name: FTP secrets missing
+        if: env.HAS_FTP != 'true'
+        run: |
+          echo "::error::Add the FTP_SERVER, FTP_USERNAME and FTP_PASSWORD secrets (GitHub → Settings → Secrets and variables → Actions)."
+          exit 1
+
+      - name: Upload to Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /public_html/
+          port: ${{ secrets.FTP_PORT || 21 }}
+          local-dir: ./build/
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/public_html/' }}
           exclude: |
             **/.git*
             **/.git*/**
-            .env
-            config/app_local.php
-            tmp/**
-            logs/**
+            **/node_modules/**
+          timeout: 600000
+          log-level: minimal
+
+      - name: Update the database (only when SSH secrets are set)
+        if: env.HAS_SSH == 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || 65002 }}
+          script: |
+            cd "${{ secrets.SSH_APP_DIR }}" || exit 1
+            php artisan migrate --force
+            php artisan optimize:clear

@@ -8,7 +8,7 @@
  *  - zips it to dist/sufra-groupops-hostinger.zip
  */
 $root = dirname(__DIR__);
-$sql = isset($argv[1]) ? (realpath($argv[1]) ?: null) : null; // resolve now: the script changes folder later
+$sql = realpath($argv[1] ?? (dirname(__DIR__).'/backend/database/sufra-groupops-database.sql')) ?: null; // resolve now: the script changes folder later
 $php = PHP_BINARY;
 $composer = getenv('COMPOSER_PHAR') ?: 'C:/laragon/bin/composer/composer.phar';
 $out = $root.'/dist';
