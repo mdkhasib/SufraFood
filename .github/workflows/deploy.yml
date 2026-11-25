@@ -116,9 +116,10 @@ jobs:
 
       - name: Unpack on the server
         run: |
-          for u in "$SITE_URL/_deploy.php" "$SITE_URL/public/_deploy.php" "$(echo "$SITE_URL" | sed 's#^https://#http://#')/public/_deploy.php"; do
+          codes=""
+          for u in "$SITE_URL/_deploy.php" "$SITE_URL/public/_deploy.php"; do
             res=$(curl -sS -L -k --max-time 900 "$u?t=$DEPLOY_TOKEN" -w '\n%{http_code}' 2>&1) || true
-            code=$(printf '%s' "$res" | tail -n1); body=$(printf '%s' "$res" | sed '$d')
+            code=$(printf '%s' "$res" | tail -n1); body=$(printf '%s' "$res" | sed '$d'); codes="$codes $code"
             echo "$u → HTTP $code"
             if printf '%s' "$body" | grep -q '"ok"'; then
               echo "$body"
@@ -126,5 +127,8 @@ jobs:
               echo "::error title=Unpack failed::$body"; exit 1
             fi
           done
-          echo "::error title=Unpack script not reachable::Could not open the unpack script at $SITE_URL. Check that APP_URL is the website of this FTP account and that the domain points to Hostinger."
+          case "$codes" in
+            *404*) echo "::error title=Wrong folder: the website does not show the files this FTP login uploads::$SITE_URL answers, but the uploaded script is not there (HTTP 404), so this FTP account's folder is not the website's folder. hPanel → Files → FTP Accounts: create (or edit) an FTP account whose Directory is the folder of $SITE_URL (hPanel → Domains → Subdomains shows it, e.g. public_html/erp or domains/…/public_html), and put that account in the FTP_USERNAME / FTP_PASSWORD secrets.";;
+            *) echo "::error title=Unpack script not reachable::Could not open the unpack script at $SITE_URL (HTTP$codes). Check that APP_URL is the website of this FTP account and that the domain points to Hostinger.";;
+          esac
           exit 1
