@@ -83,6 +83,15 @@ jobs:
           echo "::add-mask::$user"; echo "::add-mask::$pass"
           { echo "FTP_HOST=$host"; echo "FTP_PORT_CLEAN=$port"; echo "FTP_USER_CLEAN=$user"; echo "FTP_PASS_CLEAN=$pass"; echo "FTP_DIR_CLEAN=$dir"; } >> "$GITHUB_ENV"
           echo "FTP host: $host  port: $port  folder: $dir"
+          # what the secrets look like (never their values) + which server answers, to tell wrong values from a wrong server
+          ip=$(getent hosts "$host" | awk '{print $1}' | head -1)
+          banner=$(timeout 10 bash -c "exec 3<>/dev/tcp/$host/$port && head -1 <&3" 2>/dev/null | tr -d '\r')
+          shape="username: ${#user} chars"
+          [ -z "$user" ] && shape="username: EMPTY (secret FTP_USERNAME not found: check the name, and that it is a Repository secret, not a Variable)"
+          case "$user" in *@*) shape="$shape, looks like an e-mail (FTP usernames on Hostinger look like u123456789 or u123456789.your-domain.com)";; esac
+          echo "$user" | grep -Eq '^u[0-9]{6,}(\.|$)' && shape="$shape, Hostinger style (u…)"
+          [ -z "$pass" ] && shape="$shape; password: EMPTY (secret FTP_PASSWORD not found)" || shape="$shape; password: ${#pass} chars"
+          echo "::notice title=FTP check::server $host ($ip) answers: ${banner:-no answer} | $shape"
           if ! listing=$(curl -sS --max-time 30 --ftp-pasv --user "$user:$pass" "ftp://$host:$port/" --list-only 2>&1); then
             case "$listing" in
               *530*|*"Access denied"*|*"Login denied"*) echo "::error title=FTP login refused (530)::Hostinger rejected the FTP username/password. In hPanel → Files → FTP Accounts copy the FTP username exactly (it often looks like u123456789.your-domain.com), set a new FTP password there, and save both again in GitHub secrets FTP_USERNAME / FTP_PASSWORD (not your hPanel e-mail or login password).";;
