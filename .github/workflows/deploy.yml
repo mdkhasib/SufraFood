@@ -95,7 +95,25 @@ jobs:
             exit 1
           fi
           if [ -z "$url" ]; then echo "::error title=Website address missing::Add the secret APP_URL (e.g. https://your-domain.com) so the deploy can unpack on the server."; exit 1; fi
-          echo "::notice title=FTP login OK::uploading into '$dir' (contains: $(printf '%s' "$listing" | tr '\r\n' '  ' | head -c 300)) · site $url"
+          # Which FTP folder is the website? Hostinger logins can land in a sub-folder (e.g. a stray
+          # public_html inside the site), so put a small probe file in each likely folder and keep the one
+          # the website serves. In curl, ftp://host/x is relative to the login folder, ftp://host//x absolute.
+          if [ -z "$RAW_DIR" ]; then
+            domain=$(printf '%s' "$url" | sed -E 's#^[a-zA-Z]+://##; s#[/:].*$##')
+            probe="_probe-$(openssl rand -hex 6).txt"; printf 'sufra-probe' > "$probe"
+            found=""; tried=""
+            for cand in "/" "//" "//public_html/" "//domains/$domain/public_html/"; do
+              if ! curl -sS --ftp-pasv --max-time 60 --user "$user:$pass" -T "$probe" "ftp://$host:$port$cand$probe" >/dev/null 2>&1; then tried="$tried ${cand}=no-folder"; continue; fi
+              got=$(curl -skL --max-time 30 "$url/$probe" || true)
+              curl -sS --ftp-pasv --max-time 30 --user "$user:$pass" "ftp://$host:$port/" --list-only -Q "DELE ${cand#/}$probe" -o /dev/null 2>/dev/null || true
+              if [ "$got" = "sufra-probe" ]; then found="$cand"; break; fi
+              tried="$tried ${cand}=not-on-website"
+            done
+            if [ -z "$found" ]; then echo "::error title=Website folder not found::None of the FTP folders is served at $url ($tried). Set the secret FTP_SERVER_DIR to the website's folder as this FTP login sees it."; exit 1; fi
+            dir="$found"; echo "FTP_DIR_CLEAN=$dir" >> "$GITHUB_ENV"
+            listing=$(curl -sS --max-time 30 --ftp-pasv --user "$user:$pass" "ftp://$host:$port$dir" --list-only 2>&1 || true)
+          fi
+          echo "::notice title=FTP login OK::the website is FTP folder '$dir' (contains: $(printf '%s' "$listing" | tr '\r\n' '  ' | head -c 300)) · site $url"
 
       - name: Pack the release and the one-time unpack script
         run: |
@@ -131,17 +149,6 @@ jobs:
               echo "::error title=Unpack failed::$body"; exit 1
             fi
           done
-          # find out where this FTP login really writes: its working folder, and whether a probe file put in
-          # it shows up on the website
-          auth="$FTP_USER_CLEAN:$FTP_PASS_CLEAN"; base="ftp://$FTP_HOST:$FTP_PORT_CLEAN$FTP_DIR_CLEAN"
-          pwd=$(curl -sS -v --ftp-pasv --max-time 30 --user "$auth" "$base" --list-only -Q PWD 2>&1 | grep -oE '257 .*' | head -1)
-          probe="_probe-$(openssl rand -hex 6).txt"; echo "probe $probe" > "$probe"
-          curl -sS --ftp-pasv --max-time 60 --user "$auth" -T "$probe" "${base}$probe" || true
-          curl -sS --ftp-pasv --ftp-create-dirs --max-time 60 --user "$auth" -T "$probe" "${base}public/$probe" || true
-          p1=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 "$SITE_URL/$probe"); p2=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 "$SITE_URL/public/$probe")
-          pub=$(curl -sS --ftp-pasv --max-time 30 --user "$auth" "${base}public/" --list-only 2>&1 | tr '\r\n' '  ' | head -c 400)
-          curl -sS --ftp-pasv --max-time 30 --user "$auth" "$base" -Q "DELE $probe" -Q "DELE public/$probe" -o /dev/null || true
-          echo "::warning title=Where the FTP login writes::FTP $pwd · probe file on the web: /$probe → HTTP $p1, /public/$probe → HTTP $p2 · public/ holds: $pub"
           case "$codes" in
             *404*) echo "::error title=Uploaded script not found on the website (HTTP 404)::$SITE_URL answers, but not with the files this FTP login uploads. hPanel → Files → FTP Accounts: the account's Directory must be the folder of $SITE_URL (e.g. /home/u…/domains/your-domain/public_html).";;
             *) echo "::error title=Unpack script not reachable::Could not open the unpack script at $SITE_URL (HTTP$codes). Check that APP_URL is the website of this FTP account and that the domain points to Hostinger.";;
