@@ -113,7 +113,8 @@ database (when it has been imported) and deletes the zip and the script. A deplo
 Your `.env`, uploaded logo/photos (`public/storage`) and the APK (`public/downloads`) are never touched.
 
 1. hPanel → **Files → FTP Accounts**: note the FTP IP/host, the FTP username (looks like `u123456789.your-domain.com`)
-   and set an FTP password. A Hostinger FTP login opens straight in the website's `public_html` folder.
+   and set an FTP password. The deploy finds the website's folder by itself (it puts a small test file in each
+   likely FTP folder and keeps the one the website serves).
 2. GitHub → your repository → **Settings → Secrets and variables → Actions → New repository secret**, add:
 
    | Secret | Value |
@@ -122,7 +123,8 @@ Your `.env`, uploaded logo/photos (`public/storage`) and the APK (`public/downlo
    | `FTP_USERNAME` | FTP user |
    | `FTP_PASSWORD` | FTP password |
    | `APP_URL` | `https://your-domain.com` (the website of this FTP account) |
-   | `FTP_SERVER_DIR` | *(optional)* only if your FTP login does **not** open in `public_html` — e.g. `/public_html/` |
+   | `FTP_SERVER_DIR` | *(optional)* only if the deploy says "Website folder not found": the website's folder as the FTP login sees it |
+   | `DB_HOST` | *(optional)* leave it out: on Hostinger the database host is `localhost` |
 
 3. `.env`, either:
    * **Secrets (recommended):** also add `APP_KEY` (any `base64:…` key — run `php artisan key:generate --show` on your PC),
