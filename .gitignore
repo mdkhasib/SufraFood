@@ -20,3 +20,8 @@
 Thumbs.db
 .DS_Store
 .claude/settings.local.json
+
+# built deploy packages
+/deploy/out/
+/deploy/.stage/
+/dist/

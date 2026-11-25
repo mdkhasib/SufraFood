@@ -40,7 +40,7 @@ return [
 
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
+            'root' => env('UPLOADS_IN_PUBLIC', false) ? public_path('storage') : storage_path('app/public'), // shared hosting (Hostinger): no symlink needed
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,

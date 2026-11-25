@@ -48,6 +48,8 @@ class Menu
                 ['POS billing', 'pos', 'monitor', $p('pos.sell')],
                 ['Kitchen display', 'pos.kds', 'tv', $p('pos.kds')],
                 ['POS orders', 'pos.orders', 'list', $p('pos.sell', 'pos.void')],
+                ['Table calls', 'calls.index', 'bell', \App\Services\QrOrderService::on() && $p('pos.table_calls')],
+                ['Table QR codes', 'qr.codes', 'grid', \App\Services\QrOrderService::on() && $p('pos.qr_codes')],
                 ['Home delivery', 'delivery.index', 'truck', \App\Support\Delivery::canView($u)],
                 ['Delivery report', 'delivery.report', 'chart', \App\Support\Delivery::on() && $p('delivery.manage', 'payroll.manage', 'delivery.order')],
                 ['Day summary', 'pos.summary', 'chart', $p('pos.void', 'reports.management', 'acc.view') && $u->featureOn('pos.core')],

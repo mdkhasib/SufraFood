@@ -28,6 +28,19 @@
       <template x-for="o in mine().filter(o=>o.error)" :key="o.uuid"><div><span x-text="o.ref"></span> · ৳<span x-text="o.total.toFixed(2)"></span> · <span x-text="o.error"></span></div></template>
       <div class="mt-1">{{ __('They stay safe on this computer. Ask the manager / accounts, then press Sync again.') }}</div></div></template>
     @endif
+    @if($cfg['qr'])
+    <div class="rounded-xl border border-purple-200 bg-purple-50 p-2.5 mb-3 text-sm" x-show="qrCalls.length || qrOrders.length" x-cloak @click.once="sound=true">
+      <div class="font-semibold text-purple-900 mb-1">📱 {{ __('Tables') }} <span class="text-xs font-normal text-purple-700" x-show="!sound">· {{ __('tap here to turn the sound on') }}</span></div>
+      <template x-for="c in qrCalls" :key="'c'+c.id"><div class="flex items-center gap-2 py-1 border-b border-purple-100">
+        <b class="w-12" x-text="c.table"></b><span class="flex-1" x-text="c.label+(c.note ? ' · '+c.note : '')+' · '+c.mins+' min'"></span>
+        <button x-show="c.status==='OPEN'" class="btn btn-primary btn-sm" @click="qrAnswer(c,'coming')">🏃 {{ __('Coming') }}</button>
+        <span x-show="c.status==='COMING'" class="text-xs text-green-700" x-text="'✓ '+(c.by||'')"></span>
+        <button class="btn btn-light btn-sm" @click="qrAnswer(c,'done')">✓</button></div></template>
+      <template x-for="o in qrOrders" :key="'o'+o.id"><div class="flex items-center gap-2 py-1">
+        <b class="w-12" x-text="o.table"></b><span class="flex-1 truncate" x-text="o.items.map(i=>i.qty+'× '+i.name).join(', ')"></span><b x-text="'৳'+Math.round(o.total)"></b>
+        <button class="btn btn-light btn-sm" @click="load(o.order)">{{ __('Open bill') }}</button></div></template>
+    </div>
+    @endif
     <div class="flex flex-wrap gap-2 mb-3">
       <button class="btn btn-sm" :class="cat==='' ? 'btn-dark' : 'btn-light'" @click="cat=''">All</button>
       <template x-for="c in cats"><button class="btn btn-sm" :class="cat===c ? 'btn-dark' : 'btn-light'" @click="cat=c" x-text="c"></button></template>
@@ -108,6 +121,7 @@ function pos(){ const P = window.PosOffline; const firstPm = '{{ $methods->first
   online: true, outbox: [], localOpen: [], lastSync: null, syncing:false, syncMsg:'', syncErr:false, swReady:false,
   init(){
     this.cats=[...new Set(this.menu.map(m=>m.category))];
+    if(this.cfg.qr){ this.qrLoad(); setInterval(()=>this.qrLoad(), 15000) }   // QR orders + table calls
     if(!this.cfg.offline) return;
     this.outbox=P.load('outbox'); this.localOpen=P.load('open'); this.lastSync=P.get('lastSync');
     P.registerSW().then(ok=>this.swReady=ok);
@@ -118,6 +132,15 @@ function pos(){ const P = window.PosOffline; const firstPm = '{{ $methods->first
     window.addEventListener('online', ()=>this.ping());
     window.addEventListener('offline', ()=>{ this.online=false });
   },
+  // ---------- QR table orders & calls ----------
+  qrCalls:[], qrOrders:[], qrSeen:null, sound:false,
+  async qrLoad(){ try{ const r=await fetch('{{ route('calls.feed') }}?location='+this.cfg.location_id,{headers:{Accept:'application/json'}}); if(!r.ok) return; const j=await r.json();
+    const ids=new Set([...j.calls.map(c=>'c'+c.id),...j.orders.map(o=>'o'+o.id+'-'+o.items.length)]);
+    if(this.qrSeen && [...ids].some(i=>!this.qrSeen.has(i))) this.beep(); this.qrSeen=ids;
+    this.qrCalls=j.calls; this.qrOrders=j.orders;
+    for(const o of j.orders){ const i=this.serverOpen.findIndex(s=>s.id===o.id); i<0 ? this.serverOpen.push(o.order) : (this.serverOpen[i]=o.order) } }catch(e){} },
+  async qrAnswer(c, what){ await fetch('{{ url('/table-calls') }}/'+c.id+'/'+what,{method:'POST',headers:{Accept:'application/json','X-CSRF-TOKEN':this.csrf()}}); this.qrLoad() },
+  beep(){ if(!this.sound) return; try{ const a=new (window.AudioContext||window.webkitAudioContext)(); [0,0.25].forEach(t=>{ const o=a.createOscillator(), g=a.createGain(); o.frequency.value=880; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(.25,a.currentTime+t); o.start(a.currentTime+t); o.stop(a.currentTime+t+.15) }) }catch(e){} },
   // ---------- helpers ----------
   mine(){ return this.outbox.filter(o=>o.user_id===this.cfg.user.id) },
   myOpen(){ return this.localOpen.filter(o=>o.user_id===this.cfg.user.id) },

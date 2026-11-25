@@ -24,9 +24,9 @@ class PosController extends Controller
             ->map(fn ($i) => $i->only(['id', 'code', 'name', 'name_bn', 'category', 'sale_price']) + ['img' => $i->imageUrl()]);
         $tables = DiningTable::where('location_id', $shift?->location_id ?? $u->location_id)->get(['id', 'name', 'seats']);
         $methods = PaymentMethod::where('active', true)->get(['id', 'name', 'type']);
-        $open = $shift ? PosOrder::with('lines.item', 'table')->where('cashier_shift_id', $shift->id)->where('status', 'OPEN')->where(fn ($w) => $w->whereNull('delivery_status')->orWhereIn('delivery_status', ['COOKING', 'READY']))->get() : collect();
+        $open = $shift ? PosOrder::with('lines.item', 'table')->where(fn ($w) => $w->where('cashier_shift_id', $shift->id)->orWhere(fn ($x) => $x->where('location_id', $shift->location_id)->where('source', 'QR')))->where('status', 'OPEN')->where(fn ($w) => $w->whereNull('delivery_status')->orWhereIn('delivery_status', ['COOKING', 'READY']))->get() : collect();
         $branches = $u->isGroupWide() ? Location::where('type', 'BRANCH')->get() : collect();
-        $cfg = ['vat' => (float) Features::setting('pos.vat_percent', 5), 'sc' => (float) Features::setting('pos.service_charge_percent', 0), 'discount_limit' => $u->is_super_admin ? 100 : (float) ($u->discount_limit ?? 0), 'delivery' => \App\Support\Delivery::on(),
+        $cfg = ['vat' => (float) Features::setting('pos.vat_percent', 5), 'sc' => (float) Features::setting('pos.service_charge_percent', 0), 'discount_limit' => $u->is_super_admin ? 100 : (float) ($u->discount_limit ?? 0), 'delivery' => \App\Support\Delivery::on(), 'qr' => \App\Services\QrOrderService::on() && $u->hasPerm('pos.table_calls'),
             'offline' => (bool) (int) Features::setting('pos.offline_enabled', 1), 'sync_minutes' => max(1, (int) Features::setting('pos.sync_minutes', 10)),
             'user' => ['id' => $u->id, 'code' => $u->employee_code, 'name' => $u->name], 'location_id' => $shift?->location_id,
             'receipt' => $shift ? static::receiptCfg($shift->location) : null];
@@ -132,7 +132,7 @@ class PosController extends Controller
         return PosOrder::with(['lines' => fn ($q) => $q->where('kot_status', 'NEW')->with('item'), 'table', 'rider'])->where('location_id', $loc)->whereIn('status', ['OPEN', 'PAID'])
             ->where('created_at', '>=', now()->subHours(6))->whereHas('lines', fn ($q) => $q->where('kot_status', 'NEW'))->orderBy('id')->get()
             ->map(fn ($o) => ['id' => $o->id, 'number' => $o->number, 'type' => $o->order_type, 'table' => $o->table?->name,
-                'delivery' => $o->delivery_status ? trim(($o->customer_name ?: $o->customer_phone).' · '.($o->delivery_area ?: '')) : null, 'rider' => $o->rider?->name, 'online' => $o->source === 'ONLINE', 'age' => (int) $o->created_at->diffInMinutes(now()), 'at' => $o->created_at->format('h:i A'),
+                'delivery' => $o->delivery_status ? trim(($o->customer_name ?: $o->customer_phone).' · '.($o->delivery_area ?: '')) : null, 'rider' => $o->rider?->name, 'online' => $o->source === 'ONLINE', 'qr' => $o->source === 'QR', 'age' => (int) $o->created_at->diffInMinutes(now()), 'at' => $o->created_at->format('h:i A'),
                 'lines' => $o->lines->map(fn ($l) => ['id' => $l->id, 'name' => $l->item->name, 'name_bn' => $l->item->name_bn, 'qty' => (float) $l->qty, 'note' => $l->note])]);
     }
 

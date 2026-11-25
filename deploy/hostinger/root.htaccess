@@ -1,0 +1,20 @@
+# Sufra GroupOps on Hostinger: the app lives in public_html, every web request is
+# sent into the public/ folder, so .env, app code and storage are never reachable.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # force HTTPS (needed for the offline POS and secure logins)
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    RewriteRule ^(\.well-known/.*)$ $1 [L]
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# never serve hidden files such as .env
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

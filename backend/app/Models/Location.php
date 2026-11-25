@@ -8,6 +8,11 @@ class Location extends Model
 {
     protected $guarded = [];
 
+    protected static function booted(): void
+    {
+        static::creating(fn (Location $l) => $l->qr_token ??= \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(12)));
+    }
+
     protected function casts(): array
     {
         return [

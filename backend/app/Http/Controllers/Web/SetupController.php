@@ -43,6 +43,15 @@ class SetupController extends Controller
             'receipt.footer' => ['Footer line 1', 'text'],
             'receipt.footer2' => ['Footer line 2 (small)', 'text'],
         ],
+        'QR table ordering' => [
+            'qr.enabled' => ['QR menu is ON (each table has a QR code customers scan)', 'bool'],
+            'qr.allow_order' => ['Customers can order from the QR menu (goes straight to kitchen + POS)', 'bool'],
+            'qr.allow_calls' => ['Customers can call a waiter / ask for the bill from the QR menu', 'bool'],
+            'qr.branch_qr' => ['Branch QR code too (customer picks the table number)', 'bool'],
+            'qr.ask_phone' => ['Ask the customer for a phone number before ordering', 'bool'],
+            'qr.max_qty' => ['Max portions in one QR order (stops prank orders)', 'number'],
+            'qr.welcome' => ['Welcome line on the QR menu', 'text'],
+        ],
         'Home delivery' => [
             'delivery.enabled' => ['Home delivery is ON (orders, delivery board, rider tasks)', 'bool'],
             'delivery.rate_default' => ['Rider bonus per delivery ৳ (default; set each branch below)', 'number'],

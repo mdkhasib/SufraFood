@@ -105,6 +105,10 @@ class PosService
         }
         $change = round($sum - $o->total, 2);
         $at = $at ? \Illuminate\Support\Carbon::parse($at) : now();
+        // a QR (table) bill or a bill with no shift is paid into the shift of the cashier who takes the money
+        if (($o->source === 'QR' || ! $o->cashier_shift_id) && ($s = static::currentShift($u)) && $s->location_id === $o->location_id) {
+            $o->update(['cashier_id' => $u->id, 'cashier_shift_id' => $s->id]);
+        }
         DB::transaction(function () use ($o, $u, $payments, $change, $at) {
             $moneyLines = [];
             foreach ($payments as $p) {

@@ -16,6 +16,8 @@ use App\Http\Controllers\Web\RequisitionController;
 use App\Http\Controllers\Web\SetupController;
 use App\Http\Controllers\Web\TaskController;
 use App\Http\Controllers\Web\TeamController;
+use App\Http\Controllers\Web\TableCallController;
+use App\Http\Controllers\QrMenuController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [AuthController::class, 'form'])->name('login');
@@ -23,6 +25,13 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20
 Route::get('/lang/{lang}', [AuthController::class, 'lang'])->name('lang');
 Route::get('/download/app', fn () => file_exists(public_path('downloads/sufra-groupops.apk')) ? response()->download(public_path('downloads/sufra-groupops.apk')) : abort(404, 'APK not built yet'))->name('apk');
 Route::get('/app', fn () => view('app-guide', ['download' => request()->boolean('download')]))->name('app.guide');
+
+// QR table ordering: customers scan the code on their table (no login)
+Route::get('/t/{token}', [QrMenuController::class, 'table'])->name('qr.table')->where('token', '[a-z0-9]{6,32}');
+Route::get('/t/{token}/status', [QrMenuController::class, 'status'])->name('qr.status')->middleware('throttle:60,1');
+Route::post('/t/{token}/order', [QrMenuController::class, 'order'])->name('qr.order')->middleware('throttle:10,1');
+Route::post('/t/{token}/call', [QrMenuController::class, 'call'])->name('qr.call')->middleware('throttle:12,1');
+Route::get('/b/{token}', [QrMenuController::class, 'branch'])->name('qr.branch')->where('token', '[a-z0-9]{6,32}');
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -174,6 +183,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/home-delivery', [DeliveryController::class, 'store'])->name('delivery.store');
     Route::get('/home-delivery/report', [DeliveryController::class, 'report'])->name('delivery.report');
     Route::post('/home-delivery/{order}/{action}', [DeliveryController::class, 'action'])->name('delivery.action')->where('action', 'assign|cash|cancel');
+    // QR table ordering: staff side
+    Route::get('/table-calls', [TableCallController::class, 'index'])->name('calls.index')->middleware('perm:pos.table_calls');
+    Route::get('/table-calls/feed', [TableCallController::class, 'feed'])->name('calls.feed')->middleware('perm:pos.table_calls');
+    Route::post('/table-calls/{call}/{what}', [TableCallController::class, 'answer'])->name('calls.answer')->where('what', 'coming|done')->middleware('perm:pos.table_calls');
+    Route::get('/qr-codes', [TableCallController::class, 'codes'])->name('qr.codes')->middleware('perm:pos.qr_codes');
+    Route::post('/qr-codes/{table}/new', [TableCallController::class, 'regenerate'])->name('qr.regenerate')->middleware('perm:pos.qr_codes');
     Route::get('/pos/summary', [PosController::class, 'summary'])->name('pos.summary')->middleware('perm:pos.void|reports.management|acc.view');
 
     // Accounting (web only)

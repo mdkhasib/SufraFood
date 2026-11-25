@@ -97,8 +97,8 @@ class CrudConfig
                 'fields' => fn () => ['name' => ['Name', 'text', 'required'], 'type' => ['Type', 'select', ['CASH' => 'Cash', 'BANK' => 'Bank', 'MFS' => 'MFS wallet', 'PETTY' => 'Petty cash', 'DRAWER' => 'POS drawer', 'CARD' => 'Card clearing']],
                     'payment_method_id' => ['Default for payment method', 'select', PaymentMethod::pluck('name', 'id')->all()], 'location_id' => ['Location', 'select', Location::pluck('name', 'id')->all()],
                     'custodian_id' => ['Custodian', 'select', User::where('is_super_admin', false)->orderBy('name')->pluck('name', 'id')->all()], 'account_no' => ['Account / wallet no', 'text'], 'active' => ['Active', 'bool']]],
-            'dining_tables' => ['title' => 'Dining tables', 'model' => \App\Models\DiningTable::class, 'access' => ['admin'], 'order' => 'location_id', 'with' => ['location'], 'list' => ['location.name' => 'Branch', 'name' => 'Table', 'seats' => 'Seats'],
-                'fields' => fn () => ['location_id' => ['Branch', 'select', Location::where('type', 'BRANCH')->pluck('name', 'id')->all()], 'name' => ['Name', 'text', 'required'], 'seats' => ['Seats', 'number']]],
+            'dining_tables' => ['title' => 'Dining tables', 'model' => \App\Models\DiningTable::class, 'access' => ['admin'], 'order' => 'location_id', 'with' => ['location'], 'list' => ['location.name' => 'Branch', 'name' => 'Table', 'seats' => 'Seats', 'active' => 'QR / in use'],
+                'fields' => fn () => ['location_id' => ['Branch', 'select', Location::where('type', 'BRANCH')->pluck('name', 'id')->all()], 'name' => ['Name', 'text', 'required'], 'seats' => ['Seats', 'number'], 'active' => ['In use (QR code works)', 'bool']]],
         ];
 
         return $all[$res] ?? null;
