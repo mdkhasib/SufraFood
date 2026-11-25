@@ -63,15 +63,45 @@ jobs:
           echo "::error::Add the FTP_SERVER, FTP_USERNAME and FTP_PASSWORD secrets (GitHub → Settings → Secrets and variables → Actions)."
           exit 1
 
+      # forgive common copy-paste mistakes: "ftp://", ":21", spaces / line breaks around the values
+      - name: Check the FTP login
+        if: env.HAS_FTP == 'true'
+        env:
+          RAW_SERVER: ${{ secrets.FTP_SERVER }}
+          RAW_USER: ${{ secrets.FTP_USERNAME }}
+          RAW_PASS: ${{ secrets.FTP_PASSWORD }}
+          RAW_PORT: ${{ secrets.FTP_PORT }}
+          RAW_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        run: |
+          host=$(printf '%s' "$RAW_SERVER" | tr -d '[:space:]' | sed -E 's#^[a-zA-Z]+://##; s#/.*$##')
+          port=$(printf '%s' "$RAW_PORT" | tr -d '[:space:]')
+          case "$host" in *:*) [ -z "$port" ] && port="${host##*:}"; host="${host%%:*}";; esac
+          port="${port:-21}"
+          user=$(printf '%s' "$RAW_USER" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+          pass=$(printf '%s' "$RAW_PASS" | tr -d '\r\n')
+          dir=$(printf '%s' "$RAW_DIR" | tr -d '[:space:]'); dir="${dir:-/public_html/}"; case "$dir" in */) ;; *) dir="$dir/";; esac
+          echo "::add-mask::$user"; echo "::add-mask::$pass"
+          { echo "FTP_HOST=$host"; echo "FTP_PORT_CLEAN=$port"; echo "FTP_USER_CLEAN=$user"; echo "FTP_PASS_CLEAN=$pass"; echo "FTP_DIR_CLEAN=$dir"; } >> "$GITHUB_ENV"
+          echo "FTP host: $host  port: $port  folder: $dir"
+          if ! listing=$(curl -sS --max-time 30 --ftp-pasv --user "$user:$pass" "ftp://$host:$port/" --list-only 2>&1); then
+            case "$listing" in
+              *530*|*"Access denied"*|*"Login denied"*) echo "::error title=FTP login refused (530)::Hostinger rejected the FTP username/password. In hPanel → Files → FTP Accounts copy the FTP username exactly (it often looks like u123456789.your-domain.com), set a new FTP password there, and save both again in GitHub secrets FTP_USERNAME / FTP_PASSWORD (not your hPanel e-mail or login password).";;
+              *"resolve host"*|*"Could not resolve"*) echo "::error title=FTP host not found::FTP_SERVER '$host' does not exist. Use the FTP IP or hostname from hPanel → Files → FTP Accounts (no ftp://).";;
+              *) echo "::error title=FTP connection failed::$listing";;
+            esac
+            exit 1
+          fi
+          echo "::notice title=FTP login OK::Folders at the FTP root: $(printf '%s' "$listing" | tr '\r\n' '  ' | head -c 300)"
+
       - name: Upload to Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
+          server: ${{ env.FTP_HOST }}
+          username: ${{ env.FTP_USER_CLEAN }}
+          password: ${{ env.FTP_PASS_CLEAN }}
+          port: ${{ env.FTP_PORT_CLEAN }}
           local-dir: ./build/
-          server-dir: ${{ secrets.FTP_SERVER_DIR || '/public_html/' }}
+          server-dir: ${{ env.FTP_DIR_CLEAN }}
           exclude: |
             **/.git*
             **/.git*/**
