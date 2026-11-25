@@ -112,6 +112,10 @@ jobs:
           base="ftp://$FTP_HOST:$FTP_PORT_CLEAN$FTP_DIR_CLEAN"
           curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 900 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T release.zip "${base}$ZIP_NAME"
           curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 120 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T _deploy.php "${base}public/_deploy.php"
+          # the two .htaccess files go up directly too, so the web server can reach the script even when the
+          # copy on the server is old or missing (they are also in the zip)
+          curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 120 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T build/public/.htaccess "${base}public/.htaccess"
+          curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 120 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T build/.htaccess "${base}.htaccess"
           echo "uploaded"
 
       - name: Unpack on the server
@@ -128,7 +132,7 @@ jobs:
             fi
           done
           case "$codes" in
-            *404*) echo "::error title=Wrong folder: the website does not show the files this FTP login uploads::$SITE_URL answers, but the uploaded script is not there (HTTP 404), so this FTP account's folder is not the website's folder. hPanel → Files → FTP Accounts: create (or edit) an FTP account whose Directory is the folder of $SITE_URL (hPanel → Domains → Subdomains shows it, e.g. public_html/erp or domains/…/public_html), and put that account in the FTP_USERNAME / FTP_PASSWORD secrets.";;
+            *404*) echo "::error title=Uploaded script not found on the website (HTTP 404)::$SITE_URL answers, but not with the files this FTP login uploads. hPanel → Files → FTP Accounts: the account's Directory must be the folder of $SITE_URL (e.g. /home/u…/domains/your-domain/public_html).";;
             *) echo "::error title=Unpack script not reachable::Could not open the unpack script at $SITE_URL (HTTP$codes). Check that APP_URL is the website of this FTP account and that the domain points to Hostinger.";;
           esac
           exit 1
