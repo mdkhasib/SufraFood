@@ -99,6 +99,7 @@ SSH: `php artisan migrate --force` (hPanel → Advanced → SSH Access), or ask 
 | **"419 Page expired" on login** | `APP_URL` must be the exact `https://` address you open; clear the browser cookies |
 | **Photos / logo don't show** | `UPLOADS_IN_PUBLIC=true` must be in `.env`; the folder `public/storage` must exist |
 | **Reminders never arrive** | the cron job of step 6 is missing or has the wrong path |
+| **GitHub deploy: "530 Login incorrect"** | the FTP username/password in GitHub secrets are wrong: copy the FTP username from hPanel → Files → FTP Accounts and set a new FTP password there |
 | **Phone app can't connect** | in the app use `https://your-domain.com` (no `/api`, no port) |
 
 ---
