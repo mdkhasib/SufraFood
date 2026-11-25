@@ -104,8 +104,11 @@ jobs:
             found=""; tried=""
             for cand in "/" "//" "//public_html/" "//domains/$domain/public_html/"; do
               if ! curl -sS --ftp-pasv --max-time 60 --user "$user:$pass" -T "$probe" "ftp://$host:$port$cand$probe" >/dev/null 2>&1; then tried="$tried ${cand}=no-folder"; continue; fi
+              # once the app is installed, its .htaccess sends /x to public/x: put a copy there too (only if public/ exists)
+              inpub=0; curl -sS --ftp-pasv --max-time 60 --user "$user:$pass" -T "$probe" "ftp://$host:$port${cand}public/$probe" >/dev/null 2>&1 && inpub=1
               got=$(curl -skL --max-time 30 "$url/$probe" || true)
               curl -sS --ftp-pasv --max-time 30 --user "$user:$pass" "ftp://$host:$port/" --list-only -Q "DELE ${cand#/}$probe" -o /dev/null 2>/dev/null || true
+              [ "$inpub" = 1 ] && { curl -sS --ftp-pasv --max-time 30 --user "$user:$pass" "ftp://$host:$port/" --list-only -Q "DELE ${cand#/}public/$probe" -o /dev/null 2>/dev/null || true; }
               if [ "$got" = "sufra-probe" ]; then found="$cand"; break; fi
               tried="$tried ${cand}=not-on-website"
             done
