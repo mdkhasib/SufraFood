@@ -1,17 +1,18 @@
 name: Deploy to Hostinger
 
-# Every push to main uploads the web panel (backend/) into Hostinger's public_html by FTP.
-# Only changed files are sent after the first upload. Your .env (unless built from secrets),
-# uploaded photos/logo (public/storage) and the APK (public/downloads) on the server are never touched.
+# Every push to main deploys the web panel (backend/) to Hostinger:
+#   1. builds the site folder (production PHP packages, root .htaccess → public/)
+#   2. uploads ONE zip + a one-time unpack script by FTP (fast; thousands of single FTP files time out)
+#   3. calls the unpack script over the web: it unzips, removes files dropped from the app, updates the
+#      database (when it has been imported), then deletes itself
+# Your .env (unless built from secrets), uploaded logo/photos (public/storage) and the APK are never touched.
 #
 # GitHub → Settings → Secrets and variables → Actions → New repository secret:
-#   required  FTP_SERVER, FTP_USERNAME, FTP_PASSWORD        (hPanel → Files → FTP Accounts)
-#   optional  FTP_SERVER_DIR   default /public_html/  (folder of the website as the FTP login sees it)
-#             FTP_PORT         default 21
-#   optional, to write .env on every deploy:
-#             APP_KEY, APP_URL, DB_DATABASE, DB_USERNAME, DB_PASSWORD   (and DB_HOST, default localhost)
-#   optional, to update the database after each deploy (hPanel → Advanced → SSH Access):
-#             SSH_HOST, SSH_USERNAME, SSH_PASSWORD, SSH_PORT (65002), SSH_APP_DIR (e.g. domains/your-domain.com/public_html)
+#   required  FTP_SERVER, FTP_USERNAME, FTP_PASSWORD   (hPanel → Files → FTP Accounts)
+#   recommended  APP_URL (https://your-domain.com), APP_KEY, DB_DATABASE, DB_USERNAME, DB_PASSWORD (→ .env)
+#   optional  FTP_SERVER_DIR  folder of the website as the FTP login sees it (default: the FTP root, which on
+#                             Hostinger FTP accounts is public_html itself)
+#             FTP_PORT (21), DB_HOST (localhost)
 
 on:
   push:
@@ -29,10 +30,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     env:
       HAS_FTP: ${{ secrets.FTP_SERVER != '' }}
-      HAS_SSH: ${{ secrets.SSH_HOST != '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -47,7 +47,7 @@ jobs:
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
 
-      - name: Build the public_html folder
+      - name: Build the site folder
         env:
           APP_KEY: ${{ secrets.APP_KEY }}
           APP_URL: ${{ secrets.APP_URL }}
@@ -63,15 +63,15 @@ jobs:
           echo "::error::Add the FTP_SERVER, FTP_USERNAME and FTP_PASSWORD secrets (GitHub → Settings → Secrets and variables → Actions)."
           exit 1
 
-      # forgive common copy-paste mistakes: "ftp://", ":21", spaces / line breaks around the values
+      # forgive copy-paste mistakes: "ftp://", ":21", spaces / line breaks around the values
       - name: Check the FTP login
-        if: env.HAS_FTP == 'true'
         env:
           RAW_SERVER: ${{ secrets.FTP_SERVER }}
           RAW_USER: ${{ secrets.FTP_USERNAME }}
           RAW_PASS: ${{ secrets.FTP_PASSWORD }}
           RAW_PORT: ${{ secrets.FTP_PORT }}
           RAW_DIR: ${{ secrets.FTP_SERVER_DIR }}
+          RAW_URL: ${{ secrets.APP_URL }}
         run: |
           host=$(printf '%s' "$RAW_SERVER" | tr -d '[:space:]' | sed -E 's#^[a-zA-Z]+://##; s#/.*$##')
           port=$(printf '%s' "$RAW_PORT" | tr -d '[:space:]')
@@ -79,54 +79,52 @@ jobs:
           port="${port:-21}"
           user=$(printf '%s' "$RAW_USER" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
           pass=$(printf '%s' "$RAW_PASS" | tr -d '\r\n')
-          dir=$(printf '%s' "$RAW_DIR" | tr -d '[:space:]'); dir="${dir:-/public_html/}"; case "$dir" in */) ;; *) dir="$dir/";; esac
+          dir=$(printf '%s' "$RAW_DIR" | tr -d '[:space:]'); dir="${dir:-/}"
+          case "$dir" in /*) ;; *) dir="/$dir";; esac; case "$dir" in */) ;; *) dir="$dir/";; esac
+          # the website address: APP_URL, else the domain in a Hostinger FTP username (u123456789.your-domain.com)
+          url=$(printf '%s' "$RAW_URL" | tr -d '[:space:]' | sed -E 's#/+$##')
+          if [ -z "$url" ]; then d=$(printf '%s' "$user" | sed -nE 's/^u[0-9]+\.(.+)$/\1/p'); [ -n "$d" ] && url="https://$d"; fi
           echo "::add-mask::$user"; echo "::add-mask::$pass"
-          { echo "FTP_HOST=$host"; echo "FTP_PORT_CLEAN=$port"; echo "FTP_USER_CLEAN=$user"; echo "FTP_PASS_CLEAN=$pass"; echo "FTP_DIR_CLEAN=$dir"; } >> "$GITHUB_ENV"
-          echo "FTP host: $host  port: $port  folder: $dir"
-          # what the secrets look like (never their values) + which server answers, to tell wrong values from a wrong server
-          ip=$(getent hosts "$host" | awk '{print $1}' | head -1)
-          banner=$(timeout 10 bash -c "exec 3<>/dev/tcp/$host/$port && head -1 <&3" 2>/dev/null | tr -d '\r')
-          shape="username: ${#user} chars"
-          [ -z "$user" ] && shape="username: EMPTY (secret FTP_USERNAME not found: check the name, and that it is a Repository secret, not a Variable)"
-          case "$user" in *@*) shape="$shape, looks like an e-mail (FTP usernames on Hostinger look like u123456789 or u123456789.your-domain.com)";; esac
-          echo "$user" | grep -Eq '^u[0-9]{6,}(\.|$)' && shape="$shape, Hostinger style (u…)"
-          [ -z "$pass" ] && shape="$shape; password: EMPTY (secret FTP_PASSWORD not found)" || shape="$shape; password: ${#pass} chars"
-          echo "::notice title=FTP check::server $host ($ip) answers: ${banner:-no answer} | $shape"
-          if ! listing=$(curl -sS --max-time 30 --ftp-pasv --user "$user:$pass" "ftp://$host:$port/" --list-only 2>&1); then
+          { echo "FTP_HOST=$host"; echo "FTP_PORT_CLEAN=$port"; echo "FTP_USER_CLEAN=$user"; echo "FTP_PASS_CLEAN=$pass"; echo "FTP_DIR_CLEAN=$dir"; echo "SITE_URL=$url"; } >> "$GITHUB_ENV"
+          if ! listing=$(curl -sS --max-time 30 --ftp-pasv --user "$user:$pass" "ftp://$host:$port$dir" --list-only 2>&1); then
             case "$listing" in
-              *530*|*"Access denied"*|*"Login denied"*) echo "::error title=FTP login refused (530)::Hostinger rejected the FTP username/password. In hPanel → Files → FTP Accounts copy the FTP username exactly (it often looks like u123456789.your-domain.com), set a new FTP password there, and save both again in GitHub secrets FTP_USERNAME / FTP_PASSWORD (not your hPanel e-mail or login password).";;
-              *"resolve host"*|*"Could not resolve"*) echo "::error title=FTP host not found::FTP_SERVER '$host' does not exist. Use the FTP IP or hostname from hPanel → Files → FTP Accounts (no ftp://).";;
+              *530*|*"Access denied"*|*"Login denied"*) echo "::error title=FTP login refused (530)::Hostinger rejected the FTP username/password. Copy them from hPanel → Files → FTP Accounts (set a new FTP password there) into the GitHub secrets FTP_USERNAME / FTP_PASSWORD.";;
+              *550*) echo "::error title=FTP folder not found::The folder '$dir' does not exist for this FTP login. Remove the FTP_SERVER_DIR secret (the FTP root is used) or fix it.";;
               *) echo "::error title=FTP connection failed::$listing";;
             esac
             exit 1
           fi
-          echo "::notice title=FTP login OK::Folders at the FTP root: $(printf '%s' "$listing" | tr '\r\n' '  ' | head -c 300)"
+          if [ -z "$url" ]; then echo "::error title=Website address missing::Add the secret APP_URL (e.g. https://your-domain.com) so the deploy can unpack on the server."; exit 1; fi
+          echo "::notice title=FTP login OK::uploading into '$dir' (contains: $(printf '%s' "$listing" | tr '\r\n' '  ' | head -c 300)) · site $url"
 
-      - name: Upload to Hostinger (FTP)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ env.FTP_HOST }}
-          username: ${{ env.FTP_USER_CLEAN }}
-          password: ${{ env.FTP_PASS_CLEAN }}
-          port: ${{ env.FTP_PORT_CLEAN }}
-          local-dir: ./build/
-          server-dir: ${{ env.FTP_DIR_CLEAN }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-          timeout: 600000
-          log-level: minimal
+      - name: Pack the release and the one-time unpack script
+        run: |
+          (cd build && zip -qr -X ../release.zip .)
+          zipname="_release-$(openssl rand -hex 12).zip"; echo "ZIP_NAME=$zipname" >> "$GITHUB_ENV"
+          token=$(openssl rand -hex 32); echo "::add-mask::$token"; echo "DEPLOY_TOKEN=$token" >> "$GITHUB_ENV"
+          hash=$(printf '%s' "$token" | sha256sum | cut -d' ' -f1)
+          sed -e "s/__TOKEN_SHA256__/$hash/" -e "s/__BUILT_AT__/$(date +%s)/" -e "s/__ZIP_NAME__/$zipname/" deploy/hostinger/unpack.php > _deploy.php
+          php -l _deploy.php
+          ls -la release.zip
 
-      - name: Update the database (only when SSH secrets are set)
-        if: env.HAS_SSH == 'true'
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 65002 }}
-          script: |
-            cd "${{ secrets.SSH_APP_DIR }}" || exit 1
-            php artisan migrate --force
-            php artisan optimize:clear
+      - name: Upload (2 files by FTP)
+        run: |
+          base="ftp://$FTP_HOST:$FTP_PORT_CLEAN$FTP_DIR_CLEAN"
+          curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 900 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T release.zip "${base}$ZIP_NAME"
+          curl -sS --ftp-pasv --ftp-create-dirs --retry 3 --retry-delay 5 --max-time 120 --user "$FTP_USER_CLEAN:$FTP_PASS_CLEAN" -T _deploy.php "${base}public/_deploy.php"
+          echo "uploaded"
+
+      - name: Unpack on the server
+        run: |
+          for u in "$SITE_URL/_deploy.php" "$SITE_URL/public/_deploy.php" "$(echo "$SITE_URL" | sed 's#^https://#http://#')/public/_deploy.php"; do
+            res=$(curl -sS -L -k --max-time 900 "$u?t=$DEPLOY_TOKEN" -w '\n%{http_code}' 2>&1) || true
+            code=$(printf '%s' "$res" | tail -n1); body=$(printf '%s' "$res" | sed '$d')
+            echo "$u → HTTP $code"
+            if printf '%s' "$body" | grep -q '"ok"'; then
+              echo "$body"
+              if printf '%s' "$body" | grep -q '"ok":true'; then echo "::notice title=Deployed::$body"; exit 0; fi
+              echo "::error title=Unpack failed::$body"; exit 1
+            fi
+          done
+          echo "::error title=Unpack script not reachable::Could not open the unpack script at $SITE_URL. Check that APP_URL is the website of this FTP account and that the domain points to Hostinger."
+          exit 1

@@ -106,27 +106,29 @@ SSH: `php artisan migrate --force` (hPanel → Advanced → SSH Access), or ask 
 
 ## Automatic deploy from GitHub (instead of uploading the zip)
 
-Every push to `main` on GitHub uploads the web panel into `public_html` by FTP
-(workflow: `.github/workflows/deploy.yml`). The first upload takes a while (≈7,000 files);
-after that only changed files are sent. Your uploaded logo/photos (`public/storage`) and the APK
-(`public/downloads`) on the server are never deleted.
+Every push to `main` on GitHub deploys the web panel (workflow: `.github/workflows/deploy.yml`):
+it builds the site, uploads **one zip + a one-time unpack script** by FTP, then opens the script over the
+web — the server unzips it in seconds, removes files that were dropped from the app, updates the
+database (when it has been imported) and deletes the zip and the script. A deploy takes about 2 minutes.
+Your `.env`, uploaded logo/photos (`public/storage`) and the APK (`public/downloads`) are never touched.
 
-1. hPanel → **Files → FTP Accounts**: note the FTP host (e.g. `ftp.your-domain.com` or an IP), username and password.
+1. hPanel → **Files → FTP Accounts**: note the FTP IP/host, the FTP username (looks like `u123456789.your-domain.com`)
+   and set an FTP password. A Hostinger FTP login opens straight in the website's `public_html` folder.
 2. GitHub → your repository → **Settings → Secrets and variables → Actions → New repository secret**, add:
 
    | Secret | Value |
    |---|---|
-   | `FTP_SERVER` | FTP host |
-   | `FTP_USERNAME` | FTP user (e.g. `u123456789.your-domain.com`) |
+   | `FTP_SERVER` | FTP IP or host |
+   | `FTP_USERNAME` | FTP user |
    | `FTP_PASSWORD` | FTP password |
-   | `FTP_SERVER_DIR` | *(optional)* website folder as the FTP login sees it — default `/public_html/` |
+   | `APP_URL` | `https://your-domain.com` (the website of this FTP account) |
+   | `FTP_SERVER_DIR` | *(optional)* only if your FTP login does **not** open in `public_html` — e.g. `/public_html/` |
 
-3. Database + `.env`, either:
+3. `.env`, either:
    * **Secrets (recommended):** also add `APP_KEY` (any `base64:…` key — run `php artisan key:generate --show` on your PC),
-     `APP_URL` (`https://your-domain.com`), `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Each deploy then writes `.env` for you.
+     `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Each deploy then writes `.env` for you.
    * **or by hand:** create `public_html/.env` once in File Manager from `deploy/hostinger/env.hostinger` in the repository.
 4. Import the demo database once: phpMyAdmin → Import → `backend/database/sufra-groupops-database.sql` from the repository.
-5. *(optional)* Database updates after each deploy: add `SSH_HOST`, `SSH_USERNAME`, `SSH_PASSWORD`, `SSH_PORT` (`65002`)
-   and `SSH_APP_DIR` (e.g. `domains/your-domain.com/public_html`) from hPanel → Advanced → SSH Access.
-   Without them, new database changes need `php artisan migrate --force` once by SSH.
-6. GitHub → **Actions** → *Deploy to Hostinger* → **Run workflow** (or just push to `main`).
+   Later deploys update the database by themselves.
+5. GitHub → **Actions** → *Deploy to Hostinger* → **Run workflow** (or just push to `main`). The run's summary says
+   what happened ("Deployed …", or what to fix).
